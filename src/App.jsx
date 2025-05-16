@@ -11,7 +11,7 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/add-book" element={<BookManagement
+          <Route path="/book-management" element={<BookManagement
            />} />
         </Routes>
       </Layout>

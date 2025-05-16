@@ -13,7 +13,7 @@ import {
 const Sidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, setIsCollapsed }) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Add Book', href: '/add-book', icon: BookOpenIcon },
+    { name: 'Book Management', href: 'book-management', icon: BookOpenIcon },
     { name: 'Users', href: '/users', icon: UsersIcon },
     { name: 'Products', href: '/products', icon: ShoppingBagIcon },
     { name: 'Orders', href: '/orders', icon: ReceiptPercentIcon },
