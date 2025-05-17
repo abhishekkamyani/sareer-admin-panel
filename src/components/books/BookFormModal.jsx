@@ -231,6 +231,13 @@ export const BookFormModal = ({
 
   if (!isOpen) return null;
 
+  let submitState = "";
+  if (isLoading) {
+    submitState = initialData ? "Updating..." : "Saving...";
+  } else {
+    submitState = initialData ? "Update Book" : "Add Book";
+  }
+
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
       <div className="h-full w-full absolute bg-gray-700 opacity-80"></div>
@@ -766,7 +773,7 @@ export const BookFormModal = ({
                   disabled={isLoading}
                   className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed hover:bg-indigo-700"
                 >
-                  Save Book
+                  {submitState}
                 </button>
               </div>
             </form>

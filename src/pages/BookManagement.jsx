@@ -42,6 +42,7 @@ export const BookManagement = () => {
 
   const upsertBookToFirestore = async (formData) => {
     try {
+      setIsLoading(true);
       let coverUrl = formData.coverUrl;
       let bookId = formData.id ?? null;
       // Upload cover image if it's a new file
@@ -52,7 +53,6 @@ export const BookManagement = () => {
         );
         await uploadBytes(storageRef, formData.coverImage);
         coverUrl = await getDownloadURL(storageRef);
-        console.log("coverUrl", coverUrl);
       }
 
       const bookData = {
@@ -102,14 +102,13 @@ export const BookManagement = () => {
 
       fetchBooks();
     } catch (error) {
+      setIsLoading(false);
       console.error("Error in upsertBookToFirestore: ", error);
       throw error;
     }
   };
 
   const handleSubmit = async (data) => {
-    console.log(data);
-    setIsLoading(true);
     try {
       if (editingBook) {
         await upsertBookToFirestore(data);
@@ -118,10 +117,11 @@ export const BookManagement = () => {
       }
     } catch (error) {
       // Handle error
+      setIsLoading(false);
+      console.error("Error submitting form: ", error);
     }
     setEditingBook(null);
     setIsModalOpened(false);
-    setIsLoading(false);
   };
   const handleEdit = (book) => {
     setEditingBook(book);
@@ -214,7 +214,7 @@ export const BookManagement = () => {
           // initialData={editingBook}
           // onSubmit={handleSubmit}
         />
-      )}u
+      )}
     </div>
   );
 };
