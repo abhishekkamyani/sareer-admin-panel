@@ -10,9 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@mui/icons-material": "^7.1.0",
+    "@mui/material": "^7.1.0",
     "@tailwindcss/vite": "^4.1.7",
+    "firebase": "^11.7.3",
+    "material-react-table": "^3.2.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-hook-form": "^7.56.3",
+    "react-perfect-scrollbar": "^1.5.8",
+    "react-router-dom": "^7.6.0",
     "tailwindcss": "^4.1.7"
   },
   "devDependencies": {
