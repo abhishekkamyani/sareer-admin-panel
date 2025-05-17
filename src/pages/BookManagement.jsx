@@ -1,37 +1,48 @@
 import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../utils/firebase";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import { onSnapshot } from "firebase/firestore";
+import BookTable from "../components/books/BookTable";
 
-// Before upload attempt
-const auth = getAuth();
-
-// Option 1: Sign in anonymously (if you don't need user accounts)
+import {
+  doc,
+  setDoc,
+  addDoc,
+  deleteDoc,
+  collection,
+  serverTimestamp,
+} from "firebase/firestore";
 
 export const BookManagement = () => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
+  console.log("Books data:", books);
+
+  const fetchBooks = () => {
+    const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
+      const booksData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setBooks(booksData);
+    });
+    return unsubscribe;
+  };
   useEffect(() => {
-    const fetch = async () => {
-      const user = await signInAnonymously(auth);
-      console.log("user", user);
-
-    }
-    fetch();
-
-
+    const unsubscribe = fetchBooks();
+    return () => unsubscribe();
   }, []);
 
-  // Function to add a new book
-  const addBookToFirestore = async (formData) => {
+  const upsertBookToFirestore = async (formData) => {
     try {
-      // 1. Upload cover image if exists
-      let coverUrl = null;
+      let coverUrl = formData.coverUrl;
+      let bookId = formData.id ?? null;
+      // Upload cover image if it's a new file
       if (formData.coverImage && typeof formData.coverImage !== "string") {
         const storageRef = ref(
           storage,
@@ -39,9 +50,9 @@ export const BookManagement = () => {
         );
         await uploadBytes(storageRef, formData.coverImage);
         coverUrl = await getDownloadURL(storageRef);
+        console.log("coverUrl", coverUrl);
       }
 
-      // 2. Prepare book data with proper schema
       const bookData = {
         name: formData.name,
         writer: formData.writer,
@@ -60,70 +71,68 @@ export const BookManagement = () => {
         },
         contentRestriction: formData.contentRestriction,
         tags: formData.tags,
-        coverUrl: coverUrl || null,
+        coverUrl,
         content: formData.content,
-        status: "published", // or "draft"
-        featured: false,
-        createdAt: serverTimestamp(),
+        status: formData.status || "published",
+        featured: formData.featured || false,
         updatedAt: serverTimestamp(),
-        stats: {
-          views: 0,
-          purchases: 0,
-          ratingsCount: 0,
-          averageRating: 0,
-        },
+        ...(bookId ? {} : { createdAt: serverTimestamp() }),
+        ...(bookId
+          ? {}
+          : {
+              stats: {
+                views: 0,
+                purchases: 0,
+                ratingsCount: 0,
+                averageRating: 0,
+              },
+            }),
       };
 
-      // 3. Add to Firestore
-      const docRef = await addDoc(collection(db, "books"), bookData);
+      if (bookId) {
+        const bookRef = doc(db, "books", bookId);
+        await setDoc(bookRef, bookData, { merge: true }); // update
+      } else {
+        await addDoc(collection(db, "books"), bookData); // create
+      }
 
-      console.log("Book added with ID: ", docRef.id);
-      return docRef.id;
+      fetchBooks();
     } catch (error) {
-      console.error("Error adding book: ", error);
+      console.error("Error in upsertBookToFirestore: ", error);
       throw error;
     }
   };
 
   const handleSubmit = async (data) => {
     console.log(data);
-
-    if (editingBook) {
-      // Update existing book
-      setBooks(
-        books.map((book) =>
-          book.id === editingBook.id ? { ...data, id: book.id } : book
-        )
-      );
-    } else {
-      // Add new book with current timestamp as ID
-      try {
-        setBooks([...books, { ...data, id: Date.now() }]);
-        const bookId = await addBookToFirestore(data);
-        console.log("IDDD", bookId);
-
-        // Handle success (show notification, redirect, etc.)
-      } catch (error) {
-        // Handle error
+    setIsLoading(true);
+    try {
+      if (editingBook) {
+        await upsertBookToFirestore(data);
+      } else {
+        await upsertBookToFirestore(data);
       }
+    } catch (error) {
+      // Handle error
     }
     setEditingBook(null);
     setIsModalOpened(false);
+    setIsLoading(false);
   };
-
   const handleEdit = (book) => {
     setEditingBook(book);
     setIsModalOpened(true);
   };
+  console.log("editing book", editingBook);
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this book?")) {
-      setBooks(books.filter((book) => book.id !== id));
-    }
+  const handleDelete = async (id) => {
+    // Implement delete logic
+    await deleteDoc(doc(db, "books", id));
+    fetchBooks();
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Book Management</h1>
         <button
@@ -157,114 +166,27 @@ export const BookManagement = () => {
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          {/* <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Cover
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Title
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Author
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Price
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {books.map((book) => (
-                <tr key={book.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {book.coverImage ? (
-                      <img
-                        src={
-                          typeof book.coverImage === "string"
-                            ? book.coverImage
-                            : URL.createObjectURL(book.coverImage)
-                        }
-                        alt="Book cover"
-                        className="h-10 w-10 object-cover rounded"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
-                        <span className="text-xs text-gray-500">No cover</span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {book.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {book.category}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {book.writer}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      ₨{book.pricePkr?.toFixed(2)}
-                    </div>
-                    {book.discountValue > 0 && (
-                      <div className="text-xs text-green-600">
-                        {book.discountType === "percentage"
-                          ? `${book.discountValue}% off`
-                          : `₨${book.discountValue} off`}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(book)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(book.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table> */}
+          <BookTable
+            books={books}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            isLoading={isLoading}
+          />
         </div>
       )}
 
-      <BookFormModal
-        isOpen={isModalOpened}
-        onClose={() => {
-          setEditingBook(null);
-          setIsModalOpened(false);
-        }}
-        initialData={editingBook}
-        onSubmit={handleSubmit}
-      />
+      {isModalOpened && (
+        <BookFormModal
+          isOpen={isModalOpened}
+          onClose={() => {
+            setEditingBook(null);
+            setIsModalOpened(false);
+          }}
+          isLoading={isLoading}
+          initialData={editingBook}
+          onSubmit={handleSubmit}
+        />
+      )}
     </div>
   );
 };

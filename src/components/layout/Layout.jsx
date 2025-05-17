@@ -25,8 +25,8 @@ const Layout = ({ children }) => {
         
         {/* Main content - adjusts width based on sidebar state */}
         <main className="flex-1 overflow-y-auto bg-gray-100">
-          <div className={`mx-auto p-4 transition-all duration-200`}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className={`mx-auto transition-all duration-200`}>
+            <div className="w-full mx-auto">
               {children || <Outlet />}
             </div>
           </div>
