@@ -8,6 +8,8 @@ import {
 } from "@heroicons/react/24/outline";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../utils/firebase";
 
 export const BookFormModal = ({
   isOpen,
@@ -45,7 +47,7 @@ export const BookFormModal = ({
   const [coverPreview, setCoverPreview] = useState(null);
   const [selectedTags, setSelectedTags] = useState(initialData?.tags || []);
   const [fileUploadError, setFileUploadError] = useState(null);
-
+  const [categories, setCategories] = useState([]);
   const discountType = watch("discountType");
   const pricePkr = watch("pricePkr");
   const discountValue = watch("discountValue");
@@ -72,6 +74,22 @@ export const BookFormModal = ({
       setCoverPreview(initialData.coverUrl || null);
     }
   }, [initialData, setValue]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "categories"));
+        const fetched = querySnapshot.docs.map((doc) => doc.data().name);
+        setCategories(fetched);
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
+      }
+    };
+
+    if (isOpen) {
+      fetchCategories();
+    }
+  }, [isOpen]);
 
   console.log("coverUrl", coverPreview);
 
@@ -114,14 +132,6 @@ export const BookFormModal = ({
     setValue("tags", newTags);
   };
 
-  const categories = [
-    "New Arrival",
-    "Novel",
-    "Short Stories",
-    "Biography",
-    "Poetry",
-    "History",
-  ];
   const languages = ["English", "Urdu"];
   const availableTags = [
     "Bestseller",

@@ -14,11 +14,13 @@ import {
   collection,
   serverTimestamp,
 } from "firebase/firestore";
+import { CategoryModal } from "../components/books/CategoryModal";
 
 export const BookManagement = () => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
+  const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   console.log("Books data:", books);
@@ -135,16 +137,28 @@ export const BookManagement = () => {
     <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Book Management</h1>
-        <button
-          onClick={() => {
-            setEditingBook(null);
-            setIsModalOpened(true);
-          }}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-          Add New Book
-        </button>
+        <div className="flex space-x-6">
+          <button
+            onClick={() => {
+              // setEditingBook(null);
+              setIsCategoryModalOpened(true);
+            }}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            {/* <PlusIcon className="-ml-1 mr-2 h-5 w-5" /> */}
+            Categories
+          </button>
+          <button
+            onClick={() => {
+              setEditingBook(null);
+              setIsModalOpened(true);
+            }}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+            Add New Book
+          </button>
+        </div>
       </div>
 
       {/* Placeholder for BookList component */}
@@ -187,6 +201,18 @@ export const BookManagement = () => {
           onSubmit={handleSubmit}
         />
       )}
+      {isCategoryModalOpened && (
+        <CategoryModal
+          isOpen={isCategoryModalOpened}
+          onClose={() => {
+            // setEditingBook(null);
+            setIsCategoryModalOpened(false);
+          }}
+          isLoading={isLoading}
+          // initialData={editingBook}
+          // onSubmit={handleSubmit}
+        />
+      )}u
     </div>
   );
 };
