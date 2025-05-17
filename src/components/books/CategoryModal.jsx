@@ -134,7 +134,12 @@ export const CategoryModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Content */}
-        <PerfectScrollbar className="max-h-[80vh]">
+        <PerfectScrollbar
+          className="max-h-[80vh]"
+          options={{
+            suppressScrollX: true,
+          }}
+        >
           <div className="p-6">
             <label
               htmlFor="category-input"

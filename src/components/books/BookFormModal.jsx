@@ -38,6 +38,7 @@ export const BookFormModal = ({
       discountType: "percentage",
       discountValue: 0,
       tags: [],
+      keywords: [],
       coverImage: null,
       contentRestriction: 5,
       content: "",
@@ -104,6 +105,7 @@ export const BookFormModal = ({
         Number(initialData.contentRestriction || 5)
       );
       setValue("tags", initialData.tags || []);
+      setValue("keywords", initialData.keywords || []);
       setSelectedTags(initialData.tags || []);
       setCoverPreview(initialData.coverUrl || null);
       setTableOfContents(initialData.tableOfContents || []);
@@ -200,11 +202,38 @@ export const BookFormModal = ({
     "Staff Pick",
   ];
 
+  const keywords = watch("keywords") || [];
+
+  const handleKeyDown = (e) => {
+    if (["Enter", ","].includes(e.key)) {
+      e.preventDefault();
+      const value = e.target.value.trim();
+      if (value && !keywords.includes(value)) {
+        setValue("keywords", [...keywords, value]);
+        e.target.value = "";
+      }
+    }
+  };
+
+  const handleBlur = (e) => {
+    const value = e.target.value.trim();
+    if (value && !keywords.includes(value)) {
+      setValue("keywords", [...keywords, value]);
+      e.target.value = "";
+    }
+  };
+
+  const removeKeyword = (index) => {
+    const newKeywords = [...keywords];
+    newKeywords.splice(index, 1);
+    setValue("keywords", newKeywords);
+  };
+
   if (!isOpen) return null;
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
-      <div className="h-full w-full absolute bg-gray-400 opacity-60"></div>
+      <div className="h-full w-full absolute bg-gray-700 opacity-80"></div>
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 border-b">
@@ -443,7 +472,7 @@ export const BookFormModal = ({
               </div>
 
               {/* Fourth Row - Content Restriction & Tags */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Preview Pages */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -494,6 +523,44 @@ export const BookFormModal = ({
                           <CheckIcon className="ml-1 h-3 w-3" />
                         )}
                       </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Keywords */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Keywords
+                    <span className="ml-2 text-gray-500 font-normal">
+                      (Press enter or comma to add)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleBlur}
+                    className={`w-full rounded-md border ${
+                      errors.keywords ? "border-red-500" : "border-gray-300"
+                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    placeholder="e.g. science, fiction, AI"
+                  />
+
+                  {/* Keywords badges */}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {keywords.map((keyword, index) => (
+                      <div
+                        key={index}
+                        className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-sm"
+                      >
+                        {keyword}
+                        <button
+                          type="button"
+                          onClick={() => removeKeyword(index)}
+                          className="ml-1 text-indigo-600 hover:text-indigo-900"
+                        >
+                          <XMarkIcon className="h-4 w-4" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
