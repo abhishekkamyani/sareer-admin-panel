@@ -1,13 +1,93 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../utils/firebase";
+import { getAuth, signInAnonymously } from "firebase/auth";
+
+// Before upload attempt
+const auth = getAuth();
+
+// Option 1: Sign in anonymously (if you don't need user accounts)
 
 export const BookManagement = () => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
 
-  const handleSubmit = (data) => {
+  useEffect(() => {
+    const fetch = async () => {
+      const user = await signInAnonymously(auth);
+      console.log("user", user);
+
+    }
+    fetch();
+
+
+  }, []);
+
+  // Function to add a new book
+  const addBookToFirestore = async (formData) => {
+    try {
+      // 1. Upload cover image if exists
+      let coverUrl = null;
+      if (formData.coverImage && typeof formData.coverImage !== "string") {
+        const storageRef = ref(
+          storage,
+          `book-covers/${Date.now()}-${formData.coverImage.name}`
+        );
+        await uploadBytes(storageRef, formData.coverImage);
+        coverUrl = await getDownloadURL(storageRef);
+      }
+
+      // 2. Prepare book data with proper schema
+      const bookData = {
+        name: formData.name,
+        writer: formData.writer,
+        description: formData.description,
+        category: formData.category,
+        language: formData.language,
+        releaseDate: formData.releaseDate,
+        prices: {
+          pkr: formData.pricePkr,
+          usd: formData.priceUsd,
+          discountedPkr: formData.discountedPricePkr || formData.pricePkr,
+        },
+        discount: {
+          type: formData.discountType,
+          value: formData.discountValue,
+        },
+        contentRestriction: formData.contentRestriction,
+        tags: formData.tags,
+        coverUrl: coverUrl || null,
+        content: formData.content,
+        status: "published", // or "draft"
+        featured: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        stats: {
+          views: 0,
+          purchases: 0,
+          ratingsCount: 0,
+          averageRating: 0,
+        },
+      };
+
+      // 3. Add to Firestore
+      const docRef = await addDoc(collection(db, "books"), bookData);
+
+      console.log("Book added with ID: ", docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error("Error adding book: ", error);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async (data) => {
+    console.log(data);
+
     if (editingBook) {
       // Update existing book
       setBooks(
@@ -17,7 +97,15 @@ export const BookManagement = () => {
       );
     } else {
       // Add new book with current timestamp as ID
-      setBooks([...books, { ...data, id: Date.now() }]);
+      try {
+        setBooks([...books, { ...data, id: Date.now() }]);
+        const bookId = await addBookToFirestore(data);
+        console.log("IDDD", bookId);
+
+        // Handle success (show notification, redirect, etc.)
+      } catch (error) {
+        // Handle error
+      }
     }
     setEditingBook(null);
     setIsModalOpened(false);
@@ -69,7 +157,7 @@ export const BookManagement = () => {
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200">
+          {/* <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th
@@ -164,7 +252,7 @@ export const BookManagement = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table> */}
         </div>
       )}
 
