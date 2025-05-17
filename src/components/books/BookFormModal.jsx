@@ -5,6 +5,7 @@ import {
   CloudArrowUpIcon,
   XMarkIcon,
   CheckIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
@@ -39,18 +40,51 @@ export const BookFormModal = ({
       tags: [],
       coverImage: null,
       contentRestriction: 5,
+      content: "",
+      tableOfContents: [],
     },
   });
-
-  console.log("initialData", initialData);
 
   const [coverPreview, setCoverPreview] = useState(null);
   const [selectedTags, setSelectedTags] = useState(initialData?.tags || []);
   const [fileUploadError, setFileUploadError] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [tableOfContents, setTableOfContents] = useState(
+    initialData?.tableOfContents || []
+  );
   const discountType = watch("discountType");
   const pricePkr = watch("pricePkr");
   const discountValue = watch("discountValue");
+
+  // Extract headings from content to auto-generate TOC
+  const extractHeadings = (content) => {
+    if (!content) return [];
+
+    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
+    const headings = [];
+
+    let match;
+    while ((match = headingRegex.exec(content)) !== null) {
+      const hashes = match[1]; // e.g. "##"
+      const text = match[2].trim(); // Heading text
+      const anchor = `${hashes} ${text}`; // e.g. "## Chapter 1"
+
+      headings.push({ title: text, anchor });
+    }
+
+    return headings;
+  };
+
+  // Update TOC when content changes
+  useEffect(() => {
+    const content = watch("content");
+    if (content) {
+      const headings = extractHeadings(content);
+      if (headings.length > 0) {
+        setTableOfContents(headings);
+      }
+    }
+  }, [watch("content")]);
 
   useEffect(() => {
     if (initialData) {
@@ -60,7 +94,7 @@ export const BookFormModal = ({
       setValue("description", initialData.description);
       setValue("category", initialData.category);
       setValue("language", initialData.language || "English");
-      setValue("releaseDate", initialData.releaseDate); // Already in YYYY-MM-DD
+      setValue("releaseDate", initialData.releaseDate);
       setValue("pricePkr", Number(initialData.prices?.pkr || 0));
       setValue("priceUsd", Number(initialData.prices?.usd || 0));
       setValue("discountType", initialData.discount?.type || "percentage");
@@ -72,6 +106,7 @@ export const BookFormModal = ({
       setValue("tags", initialData.tags || []);
       setSelectedTags(initialData.tags || []);
       setCoverPreview(initialData.coverUrl || null);
+      setTableOfContents(initialData.tableOfContents || []);
     }
   }, [initialData, setValue]);
 
@@ -80,7 +115,10 @@ export const BookFormModal = ({
       try {
         const querySnapshot = await getDocs(collection(db, "categories"));
         const fetched = querySnapshot.docs.map((doc) => doc.data().name);
-        setCategories(fetched);
+        if (fetched?.length > 0) {
+          setCategories(fetched);
+          // setValue("category", initialData?.category || "");
+        }
       } catch (err) {
         console.error("Failed to fetch categories", err);
       }
@@ -91,7 +129,11 @@ export const BookFormModal = ({
     }
   }, [isOpen]);
 
-  console.log("coverUrl", coverPreview);
+  useEffect(() => {
+    if (categories.length > 0) {
+      setValue("category", initialData?.category || "");
+    }
+  }, [categories]);
 
   // Calculate discounted price
   useEffect(() => {
@@ -132,6 +174,23 @@ export const BookFormModal = ({
     setValue("tags", newTags);
   };
 
+  // Handle TOC changes
+  const handleTocChange = (index, field, value) => {
+    const updatedToc = [...tableOfContents];
+    updatedToc[index][field] = value;
+    setTableOfContents(updatedToc);
+  };
+
+  const addTocEntry = () => {
+    setTableOfContents([...tableOfContents, { title: "", anchor: "" }]);
+  };
+
+  const removeTocEntry = (index) => {
+    const updatedToc = [...tableOfContents];
+    updatedToc.splice(index, 1);
+    setTableOfContents(updatedToc);
+  };
+
   const languages = ["English", "Urdu"];
   const availableTags = [
     "Bestseller",
@@ -169,7 +228,15 @@ export const BookFormModal = ({
             }}
           >
             <form
-              onSubmit={handleSubmit(onSubmit)}
+              onSubmit={handleSubmit((data) => {
+                const formData = {
+                  ...data,
+                  tableOfContents: tableOfContents.filter(
+                    (item) => item.title && item.anchor
+                  ),
+                };
+                onSubmit(formData);
+              })}
               className="space-y-4 h-full"
             >
               {/* First Row - Book Info */}
@@ -517,9 +584,12 @@ export const BookFormModal = ({
               </div>
 
               {/* Seventh Row - Book Content */}
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Book Content (Text)*
+                  <span className="ml-2 text-gray-500 font-normal">
+                    Use ## Heading for chapters (will auto-generate TOC)
+                  </span>
                 </label>
                 <textarea
                   rows={8}
@@ -533,6 +603,86 @@ export const BookFormModal = ({
                     {errors.content.message}
                   </p>
                 )}
+              </div> */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Book Content (Text)*
+                  <span className="ml-2 text-gray-500 font-normal">
+                    Use <code>#</code>, <code>##</code>, etc. for
+                    chapters/sections (TOC auto-generated)
+                  </span>
+                </label>
+                <textarea
+                  rows={10}
+                  {...register("content", { required: "Required" })}
+                  placeholder={`# Chapter 1\n## Introduction\nContent here...`}
+                  className={`w-full rounded-md border ${
+                    errors.content ? "border-red-500" : "border-gray-300"
+                  } p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono`}
+                />
+                {errors.content && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {errors.content.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Eighth Row - Table of Contents */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Table of Contents
+                </label>
+                <div className="space-y-2 mb-2">
+                  {tableOfContents.length > 0 ? (
+                    <ul className="border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto">
+                      {tableOfContents.map((item, index) => (
+                        <li
+                          key={index}
+                          className="flex items-center gap-2 mb-1 last:mb-0"
+                        >
+                          <input
+                            type="text"
+                            placeholder="Chapter title"
+                            value={item.title}
+                            onChange={(e) =>
+                              handleTocChange(index, "title", e.target.value)
+                            }
+                            className="flex-1 rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Anchor (e.g., #chapter1)"
+                            value={item.anchor}
+                            onChange={(e) =>
+                              handleTocChange(index, "anchor", e.target.value)
+                            }
+                            className="flex-1 rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeTocEntry(index)}
+                            className="text-red-500 hover:text-red-700 p-2"
+                          >
+                            <XMarkIcon className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-500 p-2">
+                      Add headings to your content (like ## Chapter 1) or
+                      manually add chapters below
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={addTocEntry}
+                    className="text-sm text-indigo-600 hover:text-indigo-500 flex items-center"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-1" />
+                    Add Chapter Manually
+                  </button>
+                </div>
               </div>
 
               {/* Footer with Action Buttons */}

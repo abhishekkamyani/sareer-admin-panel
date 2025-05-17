@@ -75,6 +75,7 @@ export const BookManagement = () => {
         tags: formData.tags,
         coverUrl,
         content: formData.content,
+        tableOfContents: formData.tableOfContents,
         status: formData.status || "published",
         featured: formData.featured || false,
         updatedAt: serverTimestamp(),
