@@ -1,12 +1,13 @@
 import ReactDOM from "react-dom";
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import {
   CloudArrowUpIcon,
   XMarkIcon,
   CheckIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import Select from "react-select";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { collection, getDocs } from "firebase/firestore";
@@ -24,13 +25,14 @@ export const BookFormModal = ({
     handleSubmit,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm({
     defaultValues: initialData || {
       name: "",
       writer: "",
       description: "",
-      category: "",
+      categories: [],
       language: "English",
       releaseDate: "",
       pricePkr: 0,
@@ -38,6 +40,7 @@ export const BookFormModal = ({
       discountType: "percentage",
       discountValue: 0,
       tags: [],
+      tag: "",
       keywords: [],
       coverImage: null,
       contentRestriction: 5,
@@ -56,6 +59,7 @@ export const BookFormModal = ({
   const discountType = watch("discountType");
   const pricePkr = watch("pricePkr");
   const discountValue = watch("discountValue");
+  const [selectedTagOption, setSelectedTagOption] = useState("custom");
 
   // Extract headings from content to auto-generate TOC
   const extractHeadings = (content) => {
@@ -93,7 +97,7 @@ export const BookFormModal = ({
       setValue("writer", initialData.writer);
       setValue("content", initialData.content);
       setValue("description", initialData.description);
-      setValue("category", initialData.category);
+      setValue("categories", initialData.categories);
       setValue("language", initialData.language || "English");
       setValue("releaseDate", initialData.releaseDate);
       setValue("pricePkr", Number(initialData.prices?.pkr || 0));
@@ -105,6 +109,7 @@ export const BookFormModal = ({
         Number(initialData.contentRestriction || 5)
       );
       setValue("tags", initialData.tags || []);
+      setValue("tag", initialData.tag || "");
       setValue("keywords", initialData.keywords || []);
       setSelectedTags(initialData.tags || []);
       setCoverPreview(initialData.coverUrl || null);
@@ -119,7 +124,7 @@ export const BookFormModal = ({
         const fetched = querySnapshot.docs.map((doc) => doc.data().name);
         if (fetched?.length > 0) {
           setCategories(fetched);
-          // setValue("category", initialData?.category || "");
+          // setValue("categories", initialData?.categories || "");
         }
       } catch (err) {
         console.error("Failed to fetch categories", err);
@@ -133,7 +138,7 @@ export const BookFormModal = ({
 
   useEffect(() => {
     if (categories.length > 0) {
-      setValue("category", initialData?.category || "");
+      setValue("categories", initialData?.categories || []);
     }
   }, [categories]);
 
@@ -323,22 +328,28 @@ export const BookFormModal = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category*
                   </label>
-                  <select
-                    {...register("category", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.category ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.category && (
+                  <Controller
+                    name="categories"
+                    control={control}
+                    rules={{ required: "Required" }}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        isMulti
+                        options={categories.map((cat) => ({
+                          value: cat,
+                          label: cat,
+                        }))}
+                        className={`react-select-container ${
+                          errors.categories ? "react-select--error" : ""
+                        }`}
+                        classNamePrefix="react-select"
+                      />
+                    )}
+                  />
+                  {errors.categories && (
                     <p className="mt-1 text-sm text-red-600">
-                      {errors.category.message}
+                      {errors.categories.message}
                     </p>
                   )}
                 </div>
@@ -514,7 +525,25 @@ export const BookFormModal = ({
                     Tags
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {availableTags.map((tag) => (
+                    <select
+                      className="w-full h-10 p-2 shadow-sm bg-secondaryLightest border border-slate-700 rounded-lg focus:border-primary text-black placeholder:italic"
+                      value={selectedTagOption}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSelectedTagOption(e.target.value);
+                        setValue(value === "custom" ? "" : value);
+                      }}
+                    >
+                      {availableTags.map((tag) => (
+                        <option key={tag} value={tag}>
+                          {tag}
+                        </option>
+                      ))}
+                      <option key="custom" value="custom">
+                        Custom
+                      </option>
+                    </select>
+                    {/* {availableTags.map((tag) => (
                       <button
                         key={tag}
                         type="button"
@@ -530,7 +559,17 @@ export const BookFormModal = ({
                           <CheckIcon className="ml-1 h-3 w-3" />
                         )}
                       </button>
-                    ))}
+                    ))} */}
+                    {selectedTagOption === "custom" && (
+                      <input
+                        type="text"
+                        {...register("tag")}
+                        className={`w-full rounded-md border ${
+                          errors.keywords ? "border-red-500" : "border-gray-300"
+                        } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                        placeholder="Write any custom tag"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -628,7 +667,7 @@ export const BookFormModal = ({
                       <div className="flex text-sm text-gray-600">
                         <label
                           htmlFor="cover-upload"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500"
+                          className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500"
                         >
                           <span>Upload a file</span>
                           <input
@@ -639,7 +678,6 @@ export const BookFormModal = ({
                             onChange={handleCoverUpload}
                           />
                         </label>
-                        <p className="pl-1">or drag and drop</p>
                       </div>
                       <p className="text-xs text-gray-500">
                         PNG, JPG up to 2MB
