@@ -114,7 +114,7 @@ export const BookManagement = () => {
         name: formData.name,
         writer: formData.writer,
         description: formData.description,
-        category: formData.category,
+        categories: formData.categories,
         language: formData.language,
         releaseDate: formData.releaseDate,
         prices: {
@@ -160,6 +160,8 @@ export const BookManagement = () => {
       setIsLoading(false);
       console.error("Error in upsertBookToFirestore: ", error);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 

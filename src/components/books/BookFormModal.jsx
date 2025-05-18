@@ -51,7 +51,6 @@ export const BookFormModal = ({
   });
 
   const [coverPreview, setCoverPreview] = useState(null);
-  const [selectedTags, setSelectedTags] = useState(initialData?.tags || []);
   const [fileUploadError, setFileUploadError] = useState(null);
   const [categories, setCategories] = useState([]);
   const [tableOfContents, setTableOfContents] = useState(
@@ -68,7 +67,7 @@ export const BookFormModal = ({
       setValue("writer", initialData.writer);
       setValue("content", initialData.content);
       setValue("description", initialData.description);
-      setValue("categories", initialData.categories);
+      // setValue("categories", initialData.categories);
       setValue("language", initialData.language || "English");
       setValue("releaseDate", initialData.releaseDate);
       setValue("pricePkr", Number(initialData.prices?.pkr || 0));
@@ -82,7 +81,6 @@ export const BookFormModal = ({
       setValue("tags", initialData.tags || []);
       setValue("tag", initialData.tag || "");
       setValue("keywords", initialData.keywords || []);
-      setSelectedTags(initialData.tags || []);
       setCoverPreview(initialData.coverUrl || null);
       setTableOfContents(initialData.tableOfContents || []);
     }
@@ -112,6 +110,9 @@ export const BookFormModal = ({
       setValue("categories", initialData?.categories || []);
     }
   }, [categories]);
+
+  console.log("initialData?.categories", initialData?.categories);
+  console.log(watch("categories", categories));
 
   // Calculate discounted price
   useEffect(() => {
@@ -287,6 +288,18 @@ export const BookFormModal = ({
                           value: cat,
                           label: cat,
                         }))}
+                        value={
+                          field.value?.map((cat) => ({
+                            value: cat,
+                            label: cat,
+                          })) || []
+                        }
+                        onChange={(selected) => {
+                          const selectedValues = selected.map(
+                            (item) => item.value
+                          );
+                          field.onChange(selectedValues); // update form value
+                        }}
                         className={`react-select-container ${
                           errors.categories ? "react-select--error" : ""
                         }`}
@@ -294,6 +307,7 @@ export const BookFormModal = ({
                       />
                     )}
                   />
+
                   {errors.categories && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.categories.message}
