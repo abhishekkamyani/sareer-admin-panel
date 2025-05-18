@@ -12,6 +12,7 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../utils/firebase";
+import { AddBookContent } from "./AddBookContent";
 
 export const BookFormModal = ({
   isOpen,
@@ -44,7 +45,7 @@ export const BookFormModal = ({
       keywords: [],
       coverImage: null,
       contentRestriction: 5,
-      content: "",
+      content: [],
       tableOfContents: [],
     },
   });
@@ -60,36 +61,6 @@ export const BookFormModal = ({
   const pricePkr = watch("pricePkr");
   const discountValue = watch("discountValue");
   const [selectedTagOption, setSelectedTagOption] = useState("custom");
-
-  // Extract headings from content to auto-generate TOC
-  const extractHeadings = (content) => {
-    if (!content) return [];
-
-    const headingRegex = /^(#{1,6})\s+(.+)$/gm;
-    const headings = [];
-
-    let match;
-    while ((match = headingRegex.exec(content)) !== null) {
-      const hashes = match[1]; // e.g. "##"
-      const text = match[2].trim(); // Heading text
-      const anchor = `${hashes} ${text}`; // e.g. "## Chapter 1"
-
-      headings.push({ title: text, anchor });
-    }
-
-    return headings;
-  };
-
-  // Update TOC when content changes
-  useEffect(() => {
-    const content = watch("content");
-    if (content) {
-      const headings = extractHeadings(content);
-      if (headings.length > 0) {
-        setTableOfContents(headings);
-      }
-    }
-  }, [watch("content")]);
 
   useEffect(() => {
     if (initialData) {
@@ -171,33 +142,9 @@ export const BookFormModal = ({
     setCoverPreview(URL.createObjectURL(file));
     setFileUploadError(null);
   };
-
-  // Handle tag selection
-  const toggleTag = (tag) => {
-    const newTags = selectedTags.includes(tag)
-      ? selectedTags.filter((t) => t !== tag)
-      : [...selectedTags, tag];
-    setSelectedTags(newTags);
-    setValue("tags", newTags);
-  };
-
-  // Handle TOC changes
-  const handleTocChange = (index, field, value) => {
-    const updatedToc = [...tableOfContents];
-    updatedToc[index][field] = value;
-    setTableOfContents(updatedToc);
-  };
-
-  const addTocEntry = () => {
-    setTableOfContents([...tableOfContents, { title: "", anchor: "" }]);
-  };
-
-  const removeTocEntry = (index) => {
-    const updatedToc = [...tableOfContents];
-    updatedToc.splice(index, 1);
-    setTableOfContents(updatedToc);
-  };
-
+  register("content", {
+    required: "Content is required",
+  });
   const languages = ["English", "Urdu"];
   const availableTags = [
     "Bestseller",
@@ -716,86 +663,15 @@ export const BookFormModal = ({
                   </p>
                 )}
               </div> */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Book Content (Text)*
-                  <span className="ml-2 text-gray-500 font-normal">
-                    Use <code>#</code>, <code>##</code>, etc. for
-                    chapters/sections (TOC auto-generated)
-                  </span>
-                </label>
-                <textarea
-                  rows={10}
-                  {...register("content", { required: "Required" })}
-                  placeholder={`# Chapter 1\n## Introduction\nContent here...`}
-                  className={`w-full rounded-md border ${
-                    errors.content ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono`}
-                />
-                {errors.content && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.content.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Eighth Row - Table of Contents */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Table of Contents
-                </label>
-                <div className="space-y-2 mb-2">
-                  {tableOfContents.length > 0 ? (
-                    <ul className="border rounded-md p-3 bg-gray-50 max-h-40 overflow-y-auto">
-                      {tableOfContents.map((item, index) => (
-                        <li
-                          key={index}
-                          className="flex items-center gap-2 mb-1 last:mb-0"
-                        >
-                          <input
-                            type="text"
-                            placeholder="Chapter title"
-                            value={item.title}
-                            onChange={(e) =>
-                              handleTocChange(index, "title", e.target.value)
-                            }
-                            className="flex-1 rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Anchor (e.g., #chapter1)"
-                            value={item.anchor}
-                            onChange={(e) =>
-                              handleTocChange(index, "anchor", e.target.value)
-                            }
-                            className="flex-1 rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeTocEntry(index)}
-                            className="text-red-500 hover:text-red-700 p-2"
-                          >
-                            <XMarkIcon className="h-4 w-4" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-gray-500 p-2">
-                      Add headings to your content (like ## Chapter 1) or
-                      manually add chapters below
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={addTocEntry}
-                    className="text-sm text-indigo-600 hover:text-indigo-500 flex items-center"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Add Chapter Manually
-                  </button>
-                </div>
-              </div>
+              {errors.content && (
+                <p className="mt-3 text-md text-end text-red-600">
+                  {errors.content.message}
+                </p>
+              )}
+              <AddBookContent
+                content={watch("content")}
+                setContent={(cb) => setValue("content", cb(watch("content")))}
+              />
 
               {/* Footer with Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t pb-5">
