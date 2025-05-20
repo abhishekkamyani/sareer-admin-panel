@@ -2,13 +2,7 @@ import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  uploadBytesResumable,
-} from "firebase/storage";
-import { db, storage } from "../utils/firebase";
+import { db } from "../utils/firebase";
 import { onSnapshot } from "firebase/firestore";
 
 import {
@@ -20,6 +14,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { CategoryModal } from "../components/books/CategoryModal";
+import { uploadFileToFirebase } from "../utils";
 
 export const BookManagement = () => {
   const [books, setBooks] = useState([]);
@@ -51,64 +46,17 @@ export const BookManagement = () => {
       let coverUrl = formData.coverUrl;
       let bookId = formData.id ?? null;
       // Upload cover image if it's a new file
-      // if (formData.coverImage && typeof formData.coverImage !== "string") {
-      //   const storageRef = ref(
-      //     storage,
-      //     `book-covers/${Date.now()}-${formData.coverImage.name}`
-      //   );
-      //   await uploadBytes(storageRef, formData.coverImage);
-      //   coverUrl = await getDownloadURL(storageRef);
-      // }
 
       if (formData.coverImage && typeof formData.coverImage !== "string") {
         try {
-          const storageRef = ref(
-            storage,
-            `book-covers/${Date.now()}-${formData.coverImage.name}`
-          );
-
-          // Add metadata for cache and content type
-          const metadata = {
-            contentType: formData.coverImage.type,
-            cacheControl: "public, max-age=31536000", // 1-year cache
-          };
-
-          // Upload with metadata
-          const snapshot = await uploadBytes(
-            storageRef,
-            formData.coverImage,
-            metadata
-          );
-
-          // Get persistent URL
-          coverUrl = await getDownloadURL(snapshot.ref);
-          console.log("Upload successful:", coverUrl);
+          const result = await uploadFileToFirebase(formData.coverImage);
+          console.log("result", result);
+          
+          coverUrl = result.url;
         } catch (error) {
-          console.error("Upload failed:", error);
-          throw new Error("Image upload failed. Please try again.");
+          console.log("--------error--------", error);
         }
       }
-
-      // if (formData.coverImage && typeof formData.coverImage !== "string") {
-      //   const storageRef = ref(storage, `book-covers/${Date.now()}-${formData.coverImage.name}`);
-      //   const uploadTask = uploadBytesResumable(storageRef, formData.coverImage);
-
-      //   uploadTask.on(
-      //     "state_changed",
-      //     (snapshot) => {
-      //       const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-      //       console.log("Upload is " + progress + "% done");
-      //     },
-      //     (error) => {
-      //       console.error("Upload error:", error);
-      //     },
-      //     async () => {
-      //       const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-      //       console.log("File available at", downloadURL);
-      //       coverUrl = downloadURL;
-      //     }
-      //   );
-      // }
 
       const bookData = {
         name: formData.name,

@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
+
 // require('dotenv').config()
 const env = import.meta.env;
 
@@ -20,5 +22,15 @@ console.log("Firebase Config:", firebaseConfig);
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app); // Changed from Realtime Database to Firestore
 const storage = getStorage(app);
+const auth = getAuth(app);
 
-export { db, storage };
+const adminLogin = (email, password) => {
+  if (email !== "abhishekkamyani@gmail.com") {
+    return Promise.reject(new Error("Unauthorized access"));
+  }
+  return signInWithEmailAndPassword(auth, email, password);
+};
+
+const adminLogout = () => signOut(auth);
+
+export { db, storage, auth, adminLogin, adminLogout };

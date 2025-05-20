@@ -85,7 +85,7 @@ export const CategoryModal = ({ isOpen, onClose }) => {
           name,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          bookCount: 0,
+          books: [], // Initialize as empty array (will store book IDs)
         });
       }
 

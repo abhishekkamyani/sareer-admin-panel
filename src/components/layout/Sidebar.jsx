@@ -12,12 +12,12 @@ import {
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, setIsCollapsed }) => {
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Book Management', href: 'book-management', icon: BookOpenIcon },
-    { name: 'Users', href: '/users', icon: UsersIcon },
-    { name: 'Products', href: '/products', icon: ShoppingBagIcon },
-    { name: 'Orders', href: '/orders', icon: ReceiptPercentIcon },
-    { name: 'Settings', href: '/settings', icon: CogIcon },
+    { name: 'Dashboard', href: '/admin', icon: HomeIcon },
+    { name: 'Book Management', href: '/admin/books', icon: BookOpenIcon },
+    { name: 'Users', href: '/admin/users', icon: UsersIcon },
+    { name: 'Products', href: '/admin/products', icon: ShoppingBagIcon },
+    { name: 'Orders', href: '/admin/orders', icon: ReceiptPercentIcon },
+    { name: 'Settings', href: '/admin/settings', icon: CogIcon },
   ];
 
   return (
