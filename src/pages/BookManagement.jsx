@@ -23,7 +23,7 @@ import {
 import { CategoryModal } from "../components/books/CategoryModal";
 import { uploadFileToFirebase } from "../utils";
 
-export const BooksManagement = () => {
+export const BookManagement = () => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
@@ -32,6 +32,8 @@ export const BooksManagement = () => {
 
   const fetchBooks = () => {
     const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
+      console.log("snapshot", snapshot.docs);
+      
       const booksData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
