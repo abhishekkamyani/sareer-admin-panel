@@ -31,8 +31,10 @@ import { AuthProvider } from "./context/AuthContext";
 import SignIn from "./pages/SignIn";
 // import AdminDashboard from "./pages/AdminDashboard";
 import { Dashboard } from "./pages/Dashboard";
-import { BooksManagement } from "./pages/BooksManagement";
+import { BookManagement } from "./pages/BookManagement";
+import { UserManagement } from "./pages/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Notifications } from "./pages/Notifications";
 
 function App() {
   return (
@@ -54,8 +56,9 @@ function App() {
             {/* These routes will be rendered inside the Layout */}
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="books" element={<BooksManagement />} />
-            {/* <Route path="users" element={<UserManagement />} /> */}
+            <Route path="book-management" element={<BookManagement />} />
+            <Route path="user-management" element={<UserManagement />} />
+            <Route path="notifications" element={<Notifications />} />
             {/* <Route path="settings" element={<Settings />} /> */}
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Route>

@@ -9,13 +9,14 @@ import {
   ChevronRightIcon,
   BookOpenIcon,
 } from '@heroicons/react/24/outline';
+import { NotificationFilled } from '@ant-design/icons';
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, setIsCollapsed }) => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Book Management', href: 'books', icon: BookOpenIcon },
-    { name: 'Users', href: '/users', icon: UsersIcon },
-    { name: 'Products', href: '/products', icon: ShoppingBagIcon },
+    { name: 'Book Management', href: 'book-management', icon: BookOpenIcon },
+    { name: 'Users', href: '/user-management', icon: UsersIcon },
+    { name: 'Notifications', href: '/notifications', icon: NotificationFilled },
     { name: 'Orders', href: '/orders', icon: ReceiptPercentIcon },
     { name: 'Settings', href: '/settings', icon: CogIcon },
   ];
