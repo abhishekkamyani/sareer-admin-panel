@@ -25,7 +25,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 
 const adminLogin = (email, password) => {
-  if (email !== "abhishekkamyani@gmail.com") {
+  if (email !== "sareerpublications@gmail.com") {
     return Promise.reject(new Error("Unauthorized access"));
   }
   return signInWithEmailAndPassword(auth, email, password);

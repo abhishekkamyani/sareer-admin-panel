@@ -10,7 +10,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === "abhishekkamyani@gmail.com") {
+      if (user && user.email === "sareerpublications@gmail.com") {
         setCurrentUser(user);
       } else {
         setCurrentUser(null);

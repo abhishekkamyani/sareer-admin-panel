@@ -12,7 +12,7 @@ export default function SignIn() {
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    if (currentUser?.email === "abhishekkamyani@gmail.com") {
+    if (currentUser?.email === "sareerpublications@gmail.com") {
       navigate("/admin");
     }
   }, [currentUser, navigate]);
