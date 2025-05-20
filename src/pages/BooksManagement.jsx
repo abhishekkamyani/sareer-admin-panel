@@ -230,9 +230,57 @@ export const BooksManagement = () => {
   };
 
   const handleDelete = async (id) => {
-    // Implement delete logic
-    await deleteDoc(doc(db, "books", id));
-    fetchBooks();
+    try {
+      setIsLoading(true);
+
+      // 1. First get the book document to find its categories
+      const bookRef = doc(db, "books", id);
+      const bookSnap = await getDoc(bookRef);
+
+      if (!bookSnap.exists()) {
+        throw new Error("Book not found");
+      }
+
+      const bookCategories = bookSnap.data().categories || [];
+
+      // 2. Prepare batch operation
+      const batch = writeBatch(db);
+
+      // 3. Add book deletion to batch
+      batch.delete(bookRef);
+
+      // 4. Remove book reference from all its categories
+      if (bookCategories.length > 0) {
+        // Get all categories that might contain this book
+        const categoriesQuery = query(
+          collection(db, "categories"),
+          where("books", "array-contains", id)
+        );
+        const categoriesSnapshot = await getDocs(categoriesQuery);
+
+        categoriesSnapshot.forEach((doc) => {
+          batch.update(doc.ref, {
+            books: arrayRemove(id),
+            updatedAt: serverTimestamp(),
+          });
+        });
+      }
+
+      // 5. Execute batch
+      await batch.commit();
+
+      // 6. Refresh data
+      fetchBooks();
+
+      // Optional: Show success message
+      toast.success("Book deleted successfully");
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      toast.error(`Failed to delete book: ${error.message}`);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
