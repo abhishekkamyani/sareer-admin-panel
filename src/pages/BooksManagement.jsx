@@ -3,27 +3,32 @@ import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
 import { db } from "../utils/firebase";
-import { onSnapshot } from "firebase/firestore";
 
 import {
+  addDoc,
+  collection,
   doc,
   setDoc,
-  addDoc,
+  updateDoc,
   deleteDoc,
-  collection,
+  getDoc,
+  arrayUnion,
+  arrayRemove,
   serverTimestamp,
+  onSnapshot,
+  getDocs,
+  writeBatch,
 } from "firebase/firestore";
+
 import { CategoryModal } from "../components/books/CategoryModal";
 import { uploadFileToFirebase } from "../utils";
 
-export const BookManagement = () => {
+export const BooksManagement = () => {
   const [books, setBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  console.log("Books data:", books);
 
   const fetchBooks = () => {
     const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
@@ -45,24 +50,35 @@ export const BookManagement = () => {
       setIsLoading(true);
       let coverUrl = formData.coverUrl;
       let bookId = formData.id ?? null;
-      // Upload cover image if it's a new file
+      let oldCategories = [];
 
+      // 1. Handle Cover Image Upload
       if (formData.coverImage && typeof formData.coverImage !== "string") {
         try {
           const result = await uploadFileToFirebase(formData.coverImage);
-          console.log("result", result);
-          
           coverUrl = result.url;
         } catch (error) {
-          console.log("--------error--------", error);
+          console.error("Image upload failed:", error);
+          throw new Error("Failed to upload cover image");
         }
       }
 
+      // 2. Get Old Categories if Updating
+      if (bookId) {
+        const bookDoc = await getDoc(doc(db, "books", bookId));
+        if (bookDoc.exists()) {
+          oldCategories = bookDoc.data().categories || [];
+        }
+      }
+
+      console.log("-------oldCategories-------", oldCategories);
+
+      // 3. Prepare Book Data
       const bookData = {
         name: formData.name,
         writer: formData.writer,
         description: formData.description,
-        categories: formData.categories,
+        categories: formData.categories || [],
         language: formData.language,
         releaseDate: formData.releaseDate,
         prices: {
@@ -83,36 +99,116 @@ export const BookManagement = () => {
         status: formData.status || "published",
         featured: formData.featured || false,
         updatedAt: serverTimestamp(),
-        ...(bookId ? {} : { createdAt: serverTimestamp() }),
-        ...(bookId
-          ? {}
-          : {
-              stats: {
-                views: 0,
-                purchases: 0,
-                ratingsCount: 0,
-                averageRating: 0,
-              },
-            }),
+        ...(!bookId && { createdAt: serverTimestamp() }),
+        ...(!bookId && {
+          stats: {
+            views: 0,
+            purchases: 0,
+            ratingsCount: 0,
+            averageRating: 0,
+          },
+        }),
       };
 
+      // 4. Create/Update Book Document
+      let newBookId;
       if (bookId) {
-        const bookRef = doc(db, "books", bookId);
-        await setDoc(bookRef, bookData, { merge: true }); // update
+        await setDoc(doc(db, "books", bookId), bookData, { merge: true });
+        newBookId = bookId;
       } else {
-        await addDoc(collection(db, "books"), bookData); // create
+        const newBookRef = await addDoc(collection(db, "books"), bookData);
+        newBookId = newBookRef.id;
       }
 
+      // 5. Sync Categories
+      // 5. SYNC CATEGORIES BY NAME (NEW IMPLEMENTATION)
+      const newCategories = formData.categories || [];
+
+      // Convert names to lowercase for case-insensitive comparison
+      const normalize = (name) => name.toLowerCase().trim();
+
+      const addedCategories = bookId
+        ? newCategories.filter(
+            (newCat) =>
+              !oldCategories.some(
+                (oldCat) => normalize(oldCat) === normalize(newCat)
+              )
+          )
+        : newCategories;
+
+      const removedCategories = bookId
+        ? oldCategories.filter(
+            (oldCat) =>
+              !newCategories.some(
+                (newCat) => normalize(newCat) === normalize(oldCat)
+              )
+          )
+        : [];
+
+      // Get all existing categories first
+      const categoriesSnapshot = await getDocs(collection(db, "categories"));
+      const existingCategories = new Set(
+        categoriesSnapshot.docs.map((doc) => normalize(doc.data().name))
+      );
+
+      // Process updates
+      const batch = writeBatch(db);
+
+      // ADD to new categories
+      for (const categoryName of addedCategories) {
+        // Find the category doc with matching name
+        const categoryDoc = categoriesSnapshot.docs.find(
+          (doc) => normalize(doc.data().name) === normalize(categoryName)
+        );
+
+        if (categoryDoc) {
+          batch.update(categoryDoc.ref, {
+            books: arrayUnion(newBookId),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          console.warn(
+            `Category "${categoryName}" doesn't exist in categories collection`
+          );
+          // Option 1: Skip (current behavior)
+          // Option 2: Create new category automatically:
+          // const newCatRef = doc(collection(db, "categories"));
+          // batch.set(newCatRef, {
+          //   name: categoryName,
+          //   books: [newBookId],
+          //   createdAt: serverTimestamp(),
+          //   updatedAt: serverTimestamp()
+          // });
+        }
+      }
+
+      // REMOVE from old categories
+      for (const categoryName of removedCategories) {
+        const categoryDoc = categoriesSnapshot.docs.find(
+          (doc) => normalize(doc.data().name) === normalize(categoryName)
+        );
+
+        if (categoryDoc) {
+          batch.update(categoryDoc.ref, {
+            books: arrayRemove(newBookId),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          console.warn(`Category "${categoryName}" not found during removal`);
+        }
+      }
+
+      await batch.commit();
+
       fetchBooks();
+      return { success: true, bookId: newBookId };
     } catch (error) {
-      setIsLoading(false);
-      console.error("Error in upsertBookToFirestore: ", error);
+      console.error("Error in upsertBookToFirestore:", error);
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
-
   const handleSubmit = async (data) => {
     try {
       if (editingBook) {
@@ -132,7 +228,6 @@ export const BookManagement = () => {
     setEditingBook(book);
     setIsModalOpened(true);
   };
-  console.log("editing book", editingBook);
 
   const handleDelete = async (id) => {
     // Implement delete logic

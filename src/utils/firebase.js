@@ -17,7 +17,7 @@ const firebaseConfig = {
   measurementId: env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-console.log("Firebase Config:", firebaseConfig);
+// console.log("Firebase Config:", firebaseConfig);
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app); // Changed from Realtime Database to Firestore

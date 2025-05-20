@@ -111,9 +111,6 @@ export const BookFormModal = ({
     }
   }, [categories]);
 
-  console.log("initialData?.categories", initialData?.categories);
-  console.log(watch("categories", categories));
-
   // Calculate discounted price
   useEffect(() => {
     if (discountType === "percentage") {

@@ -31,7 +31,7 @@ import { AuthProvider } from "./context/AuthContext";
 import SignIn from "./pages/SignIn";
 // import AdminDashboard from "./pages/AdminDashboard";
 import { Dashboard } from "./pages/Dashboard";
-import { BookManagement } from "./pages/BookManagement";
+import { BooksManagement } from "./pages/BooksManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
@@ -44,7 +44,7 @@ function App() {
 
           {/* Protected admin routes with Layout */}
           <Route
-            path="/admin"
+            path="/"
             element={
               <ProtectedRoute>
                 <Layout /> {/* Layout wrapper for all admin routes */}
@@ -54,9 +54,10 @@ function App() {
             {/* These routes will be rendered inside the Layout */}
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
-            <Route path="books" element={<BookManagement />} />
+            <Route path="books" element={<BooksManagement />} />
             {/* <Route path="users" element={<UserManagement />} /> */}
             {/* <Route path="settings" element={<Settings />} /> */}
+            <Route path="*" element={<Navigate to="/404" replace />} />
           </Route>
 
           {/* Catch-all route that redirects to signin */}
