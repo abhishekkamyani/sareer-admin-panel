@@ -25,7 +25,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 
 const adminLogin = (email, password) => {
-  if (email !== "sareerpublications@gmail.com") {
+  if (email !== import.meta.env.VITE_FIREBASE_ADMIN_EMAIL) {
     return Promise.reject(new Error("Unauthorized access"));
   }
   return signInWithEmailAndPassword(auth, email, password);

@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 export default function ProtectedRoute({ children }) {
   const { currentUser } = useAuth();
 
-  if (currentUser?.email !== "sareerpublications@gmail.com") {
+  if (currentUser?.email !== import.meta.env.VITE_FIREBASE_ADMIN_EMAIL) {
     return <Navigate to="/signin" replace />;
   }
 
