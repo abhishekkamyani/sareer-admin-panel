@@ -24,7 +24,7 @@ export default function SignIn() {
 
     try {
       await adminLogin(email, password);
-      navigate("/admin");
+      navigate("/");
     } catch (err) {
       setError("Failed to sign in. Please check your credentials.");
       console.error(err);

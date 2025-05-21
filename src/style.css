@@ -61,3 +61,11 @@
   --color-danger-800: #991b1b;
   --color-danger-900: #7f1d1d;
 }
+
+.ant-layout-sider {
+  background: #fff !important;
+}
+
+.ant-menu {
+  background: #fff !important;
+}
