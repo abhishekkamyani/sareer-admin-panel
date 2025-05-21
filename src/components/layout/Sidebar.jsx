@@ -34,7 +34,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen, isCollapsed, setIsCollapsed }) =
       {/* Sidebar */}
       <div
         className={`inset-y-0 rounded-md bg-white shadow-lg transition-all duration-200 ease-in-out ${
-          isCollapsed ? 'w-20' : 'w-fit'
+          isCollapsed ? 'w-20' : 'w-54'
         } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
       >
         <div className="flex items-center justify-between h-16 px-4 bg-indigo-600">
