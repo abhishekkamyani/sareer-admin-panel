@@ -1,17 +1,10 @@
 import ReactDOM from "react-dom";
 import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
-import {
-  CloudArrowUpIcon,
-  XMarkIcon,
-  CheckIcon,
-  PlusIcon,
-} from "@heroicons/react/24/outline";
+import { CloudArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import Select from "react-select";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../utils/firebase";
 import { AddBookContent } from "./AddBookContent";
 
 export const BookFormModal = ({
@@ -19,6 +12,7 @@ export const BookFormModal = ({
   onClose,
   onSubmit,
   initialData,
+  categories,
   isLoading,
 }) => {
   const {
@@ -52,7 +46,6 @@ export const BookFormModal = ({
 
   const [coverPreview, setCoverPreview] = useState(null);
   const [fileUploadError, setFileUploadError] = useState(null);
-  const [categories, setCategories] = useState([]);
   const [tableOfContents, setTableOfContents] = useState(
     initialData?.tableOfContents || []
   );
@@ -85,25 +78,6 @@ export const BookFormModal = ({
       setTableOfContents(initialData.tableOfContents || []);
     }
   }, [initialData, setValue]);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "categories"));
-        const fetched = querySnapshot.docs.map((doc) => doc.data().name);
-        if (fetched?.length > 0) {
-          setCategories(fetched);
-          // setValue("categories", initialData?.categories || "");
-        }
-      } catch (err) {
-        console.error("Failed to fetch categories", err);
-      }
-    };
-
-    if (isOpen) {
-      fetchCategories();
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     if (categories.length > 0) {

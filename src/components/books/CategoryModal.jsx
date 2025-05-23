@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
@@ -14,34 +14,16 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../utils/firebase";
+import { useQueryClient } from "@tanstack/react-query";
 
-export const CategoryModal = ({ isOpen, onClose }) => {
+export const CategoryModal = ({ isOpen, onClose, existingCategories }) => {
   const [input, setInput] = useState("");
-  const [categories, setCategories] = useState([]); // all categories
+  const [categories, setCategories] = useState(existingCategories ?? []); // all categories
   const [newCategories, setNewCategories] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [removedCategories, setRemovedCategories] = useState([]);
-
-  // Fetch existing categories from Firebase
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "categories"));
-        const fetched = querySnapshot.docs.map((doc) => doc.data().name);
-        setCategories(fetched);
-      } catch (err) {
-        console.error("Failed to fetch categories", err);
-      }
-    };
-
-    if (isOpen) {
-      fetchCategories();
-      setNewCategories([]);
-      setInput("");
-      setError(null);
-    }
-  }, [isOpen]);
+  const queryClient = useQueryClient();
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -100,6 +82,8 @@ export const CategoryModal = ({ isOpen, onClose }) => {
           await deleteDoc(doc.ref);
         });
       }
+
+      queryClient.invalidateQueries(["categories"]);
 
       onClose();
     } catch (err) {

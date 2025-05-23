@@ -9,8 +9,6 @@ import {
   collection,
   doc,
   setDoc,
-  updateDoc,
-  deleteDoc,
   getDoc,
   arrayUnion,
   arrayRemove,
@@ -22,18 +20,28 @@ import {
 
 import { CategoryModal } from "../components/books/CategoryModal";
 import { uploadFileToFirebase } from "../utils";
+import { getCategories } from "../utils/firebaseApis";
+import { useQuery } from "@tanstack/react-query";
 
 export const BookManagement = () => {
   const [books, setBooks] = useState([]);
+  // const [categories, setCategories] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const categoriesQuery = useQuery({
+    queryKey: ["categories"],
+    queryFn: getCategories,
+  });
+
+  console.log("categoriesQuery", categoriesQuery.isLoading);
+
   const fetchBooks = () => {
     const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
       console.log("snapshot", snapshot.docs);
-      
+
       const booksData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -334,6 +342,7 @@ export const BookManagement = () => {
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <BookTable
             books={books}
+            categories={categoriesQuery.data}
             onEdit={handleEdit}
             onDelete={handleDelete}
             isLoading={isLoading}
@@ -350,6 +359,7 @@ export const BookManagement = () => {
           }}
           isLoading={isLoading}
           initialData={editingBook}
+          categories={categoriesQuery.data}
           onSubmit={handleSubmit}
         />
       )}
@@ -360,7 +370,8 @@ export const BookManagement = () => {
             // setEditingBook(null);
             setIsCategoryModalOpened(false);
           }}
-          isLoading={isLoading}
+          existingCategories={categoriesQuery.data}
+          isLoading={isLoading || categoriesQuery.isLoading}
           // initialData={editingBook}
           // onSubmit={handleSubmit}
         />

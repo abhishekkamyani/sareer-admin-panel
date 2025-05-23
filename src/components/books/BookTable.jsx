@@ -3,8 +3,10 @@ import { MaterialReactTable } from "material-react-table";
 import { Box, IconButton, Tooltip } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 
-const BookTable = ({ books, onEdit, onDelete, isLoading }) => {
+const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
   // Define columns
+  console.log("categories in book table", categories);
+  
   const columns = useMemo(
     () => [
       {
@@ -38,17 +40,10 @@ const BookTable = ({ books, onEdit, onDelete, isLoading }) => {
         size: 150,
       },
       {
-        accessorKey: "category",
-        header: "Category",
+        accessorKey: "categories",
+        header: "Categories",
         filterVariant: "select",
-        filterSelectOptions: [
-          "New Arrival",
-          "Novel",
-          "Short Stories",
-          "Biography",
-          "Poetry",
-          "History",
-        ],
+        filterSelectOptions: categories,
       },
       {
         accessorKey: "language",
@@ -158,11 +153,10 @@ const BookTable = ({ books, onEdit, onDelete, isLoading }) => {
       }}
       muiTableContainerProps={{
         sx: {
-          height: '60%',       // 👈 Fixed percentage height
-          minHeight: '60dvh',  // 👈 Optional fallback for very small screens
+          height: "60%", // 👈 Fixed percentage height
+          minHeight: "60dvh", // 👈 Optional fallback for very small screens
         },
       }}
-      
     />
   );
 };

@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { getMessaging } from "firebase/messaging";
 
 // require('dotenv').config()
 const env = import.meta.env;
@@ -17,11 +18,13 @@ const firebaseConfig = {
   measurementId: env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+
 // console.log("Firebase Config:", firebaseConfig);
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app); // Changed from Realtime Database to Firestore
 const storage = getStorage(app);
+const messaging = getMessaging(app);
 const auth = getAuth(app);
 
 const adminLogin = (email, password) => {
@@ -33,4 +36,4 @@ const adminLogin = (email, password) => {
 
 const adminLogout = () => signOut(auth);
 
-export { db, storage, auth, adminLogin, adminLogout };
+export { db, storage, auth, messaging, adminLogin, adminLogout };
