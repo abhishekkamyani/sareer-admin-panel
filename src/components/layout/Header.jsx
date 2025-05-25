@@ -58,7 +58,7 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
   return (
     <Header style={{ 
       background: '#fff',
-      padding: '0 24px',
+      padding: '10px 24px',
       boxShadow: '0 1px 4px rgba(0,21,41,0.08)',
       display: 'flex',
       justifyContent: !isLargeScreen ? 'space-between' : "end",

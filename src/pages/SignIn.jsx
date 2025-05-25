@@ -13,7 +13,7 @@ export default function SignIn() {
 
   useEffect(() => {
     if (currentUser?.email === import.meta.env.VITE_FIREBASE_ADMIN_EMAIL) {
-      navigate("/admin");
+      navigate("/");
     }
   }, [currentUser, navigate]);
 

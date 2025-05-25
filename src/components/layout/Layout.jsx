@@ -11,12 +11,14 @@ const Layout = ({ children }) => {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar - now part of the flex layout */}
+      {/* <div className="w-fit"> */}
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         isCollapsed={isCollapsed}
         setIsCollapsed={setIsCollapsed}
       />
+      {/* </div> */}
 
       {/* Main content area */}
       <div className="flex-1 ml-8 flex flex-col overflow-hidden">

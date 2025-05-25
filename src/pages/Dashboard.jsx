@@ -65,11 +65,11 @@ export const Dashboard = () => {
 
       // Fetch recent activities
       const activitiesQuery = query(
-        collection(db, 'activities'),
-        where('timestamp', '>=', dateRange[0].toDate()),
-        where('timestamp', '<=', dateRange[1].toDate()),
-        orderBy('timestamp', 'desc'),
-        limit(5)
+        // collection(db, 'activities'),
+        // where('timestamp', '>=', dateRange[0].toDate()),
+        // where('timestamp', '<=', dateRange[1].toDate()),
+        // orderBy('timestamp', 'desc'),
+        // limit(5)
       );
       const activitiesSnapshot = await getDocs(activitiesQuery);
       setActivities(activitiesSnapshot.docs.map(doc => ({
