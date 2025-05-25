@@ -211,10 +211,10 @@ export const BookFormModal = ({
                     {...register("name", { required: "Required" })}
                     className={`w-full rounded-md border ${
                       errors.name ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   {errors.name && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.name.message}
                     </p>
                   )}
@@ -230,10 +230,10 @@ export const BookFormModal = ({
                     {...register("writer", { required: "Required" })}
                     className={`w-full rounded-md border ${
                       errors.writer ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   {errors.writer && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.writer.message}
                     </p>
                   )}
@@ -280,7 +280,7 @@ export const BookFormModal = ({
                   />
 
                   {errors.categories && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.categories.message}
                     </p>
                   )}
@@ -293,7 +293,7 @@ export const BookFormModal = ({
                   </label>
                   <select
                     {...register("language")}
-                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
                   >
                     {languages.map((lang) => (
                       <option key={lang} value={lang}>
@@ -313,10 +313,10 @@ export const BookFormModal = ({
                     {...register("releaseDate", { required: "Required" })}
                     className={`w-full rounded-md border ${
                       errors.releaseDate ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   {errors.releaseDate && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.releaseDate.message}
                     </p>
                   )}
@@ -344,11 +344,11 @@ export const BookFormModal = ({
                       })}
                       className={`w-full pl-8 rounded-md border ${
                         errors.pricePkr ? "border-red-500" : "border-gray-300"
-                      } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                      } p-2 focus:ring-primary focus:border-primary`}
                     />
                   </div>
                   {errors.pricePkr && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.pricePkr.message}
                     </p>
                   )}
@@ -373,11 +373,11 @@ export const BookFormModal = ({
                       })}
                       className={`w-full pl-8 rounded-md border ${
                         errors.priceUsd ? "border-red-500" : "border-gray-300"
-                      } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                      } p-2 focus:ring-primary focus:border-primary`}
                     />
                   </div>
                   {errors.priceUsd && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.priceUsd.message}
                     </p>
                   )}
@@ -391,7 +391,7 @@ export const BookFormModal = ({
                   <div className="flex gap-2">
                     <select
                       {...register("discountType")}
-                      className="w-1/3 rounded-md border border-gray-300 p-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-1/3 rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
                     >
                       <option value="percentage">%</option>
                       <option value="fixed">PKR</option>
@@ -406,11 +406,11 @@ export const BookFormModal = ({
                         errors.discountValue
                           ? "border-red-500"
                           : "border-gray-300"
-                      } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                      } p-2 focus:ring-primary focus:border-primary`}
                     />
                   </div>
                   {errors.discountValue && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.discountValue.message}
                     </p>
                   )}
@@ -439,13 +439,13 @@ export const BookFormModal = ({
                       errors.contentRestriction
                         ? "border-red-500"
                         : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   <p className="mt-1 text-sm text-gray-500">
                     Pages visible to unauthorized users
                   </p>
                   {errors.contentRestriction && (
-                    <p className="mt-1 text-sm text-red-600">
+                    <p className="mt-1 text-sm text-error">
                       {errors.contentRestriction.message}
                     </p>
                   )}
@@ -498,7 +498,7 @@ export const BookFormModal = ({
                         {...register("tag")}
                         className={`w-full rounded-md border ${
                           errors.keywords ? "border-red-500" : "border-gray-300"
-                        } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                        } p-2 focus:ring-primary focus:border-primary`}
                         placeholder="Write any custom tag"
                       />
                     )}
@@ -519,7 +519,7 @@ export const BookFormModal = ({
                     onBlur={handleBlur}
                     className={`w-full rounded-md border ${
                       errors.keywords ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                    } p-2 focus:ring-primary focus:border-primary`}
                     placeholder="e.g. science, fiction, AI"
                   />
 
@@ -528,13 +528,13 @@ export const BookFormModal = ({
                     {keywords.map((keyword, index) => (
                       <div
                         key={index}
-                        className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-sm"
+                        className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-primary text-sm"
                       >
                         {keyword}
                         <button
                           type="button"
                           onClick={() => removeKeyword(index)}
-                          className="ml-1 text-indigo-600 hover:text-indigo-900"
+                          className="ml-1 text-primary hover:text-primary-dark"
                         >
                           <XMarkIcon className="h-4 w-4" />
                         </button>
@@ -554,10 +554,10 @@ export const BookFormModal = ({
                   {...register("description", { required: "Required" })}
                   className={`w-full rounded-md border ${
                     errors.description ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                  } p-2 focus:ring-primary focus:border-primary`}
                 />
                 {errors.description && (
-                  <p className="mt-1 text-sm text-red-600">
+                  <p className="mt-1 text-sm text-error">
                     {errors.description.message}
                   </p>
                 )}
@@ -599,7 +599,7 @@ export const BookFormModal = ({
                       <div className="flex text-sm text-gray-600">
                         <label
                           htmlFor="cover-upload"
-                          className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500"
+                          className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-success hover:text-primary"
                         >
                           <span>Upload a file</span>
                           <input
@@ -618,10 +618,10 @@ export const BookFormModal = ({
                   )}
                 </div>
                 {fileUploadError && (
-                  <p className="mt-1 text-sm text-red-600">{fileUploadError}</p>
+                  <p className="mt-1 text-sm text-error">{fileUploadError}</p>
                 )}
                 {errors.coverImage && (
-                  <p className="mt-1 text-sm text-red-600">
+                  <p className="mt-1 text-sm text-error">
                     {errors.coverImage.message}
                   </p>
                 )}
@@ -640,16 +640,16 @@ export const BookFormModal = ({
                   {...register("content", { required: "Required" })}
                   className={`w-full rounded-md border ${
                     errors.content ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-indigo-500 focus:border-indigo-500`}
+                  } p-2 focus:ring-primary focus:border-primary`}
                 />
                 {errors.content && (
-                  <p className="mt-1 text-sm text-red-600">
+                  <p className="mt-1 text-sm text-error">
                     {errors.content.message}
                   </p>
                 )}
               </div> */}
               {errors.content && (
-                <p className="mt-3 text-md text-end text-red-600">
+                <p className="mt-3 text-md text-end text-error">
                   {errors.content.message}
                 </p>
               )}
@@ -663,14 +663,14 @@ export const BookFormModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-grey-500 rounded-md shadow-sm text-sm font-medium text-primary hover:bg-grey-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 disabled:bg-gray-500 disabled:cursor-not-allowed hover:bg-indigo-700"
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary disabled:bg-grey-600 disabled:cursor-not-allowed hover:bg-warning"
                 >
                   {submitState}
                 </button>

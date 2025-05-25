@@ -135,7 +135,7 @@ const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
                 }
               }}
             >
-              <Delete />
+              <Delete htmlColor="#ED1C24" />
             </IconButton>
           </Tooltip>
         </Box>

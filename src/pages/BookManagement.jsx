@@ -294,18 +294,16 @@ export const BookManagement = () => {
   };
 
   return (
-    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Book Management</h1>
-        <div className="flex space-x-6">
+    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-primary">Book Management</h1>
+
+        <div className="flex gap-3 w-full sm:w-auto">
           <button
-            onClick={() => {
-              // setEditingBook(null);
-              setIsCategoryModalOpened(true);
-            }}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            onClick={() => setIsCategoryModalOpened(true)}
+            className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
           >
-            {/* <PlusIcon className="-ml-1 mr-2 h-5 w-5" /> */}
             Manage Categories
           </button>
           <button
@@ -313,7 +311,7 @@ export const BookManagement = () => {
               setEditingBook(null);
               setIsModalOpened(true);
             }}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center cursor-pointer justify-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
             Add New Book
@@ -321,25 +319,25 @@ export const BookManagement = () => {
         </div>
       </div>
 
-      {/* Placeholder for BookList component */}
+      {/* Content Section */}
       {books.length === 0 ? (
-        <div className="bg-white shadow rounded-lg p-8 text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="bg-white shadow rounded-lg p-6 sm:p-8 text-center border border-grey-200">
+          <h3 className="text-lg font-medium text-grey-900 mb-2">
             No books added yet
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-grey-600 mb-4">
             Get started by adding your first book
           </p>
           <button
             onClick={() => setIsModalOpened(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            className="inline-flex items-center cursor-pointer justify-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
             Add Book
           </button>
         </div>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-grey-200">
           <BookTable
             books={books}
             categories={categoriesQuery.data}
@@ -350,6 +348,7 @@ export const BookManagement = () => {
         </div>
       )}
 
+      {/* Modals */}
       {isModalOpened && (
         <BookFormModal
           isOpen={isModalOpened}
@@ -366,14 +365,9 @@ export const BookManagement = () => {
       {isCategoryModalOpened && (
         <CategoryModal
           isOpen={isCategoryModalOpened}
-          onClose={() => {
-            // setEditingBook(null);
-            setIsCategoryModalOpened(false);
-          }}
+          onClose={() => setIsCategoryModalOpened(false)}
           existingCategories={categoriesQuery.data}
           isLoading={isLoading || categoriesQuery.isLoading}
-          // initialData={editingBook}
-          // onSubmit={handleSubmit}
         />
       )}
     </div>

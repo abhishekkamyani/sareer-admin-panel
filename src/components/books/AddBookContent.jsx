@@ -39,7 +39,7 @@ export const AddBookContent = ({ content, setContent }) => {
           <button
             onClick={addChapter}
             type="button"
-            className="bg-blue-500 text-white p-2 rounded"
+            className="bg-primary text-white p-2 rounded"
           >
             <PlusIcon className="h-4 w-4" />
           </button>
@@ -50,8 +50,8 @@ export const AddBookContent = ({ content, setContent }) => {
               key={item.id}
               className={`p-2 rounded cursor-pointer ${
                 selectedChapter === item.id
-                  ? "bg-blue-100"
-                  : "hover:bg-gray-100"
+                  ? "bg-grey-300"
+                  : "hover:bg-grey-200"
               }`}
               onClick={() => setSelectedChapter(item.id)}
             >
@@ -64,7 +64,7 @@ export const AddBookContent = ({ content, setContent }) => {
                     e.stopPropagation();
                     deleteChapter(item.id);
                   }}
-                  className="text-red-600 hover:text-red-700"
+                  className="text-error hover:text-red-700"
                   type="button"
                 >
                   <XMarkIcon className="h-4 w-4" />
