@@ -35,6 +35,7 @@ import { BookManagement } from "./pages/BookManagement";
 import { UserManagement } from "./pages/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Notifications } from "./pages/Notifications";
+import NotFound from "./pages/NotFound";
 
 function App() {
   return (
@@ -59,6 +60,7 @@ function App() {
             <Route path="book-management" element={<BookManagement />} />
             <Route path="user-management" element={<UserManagement />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="/404" element={<NotFound />} />
             {/* <Route path="settings" element={<Settings />} /> */}
             <Route path="*" element={<Navigate to="/404" replace />} />
           </Route>
