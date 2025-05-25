@@ -314,14 +314,15 @@ export const Notifications = () => {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Row gutter={24}>
+    <div className="!p-6">
+      <Row gutter={[24, 24]}>
         {/* Notification Form */}
         <Col xs={24} md={10}>
           <Card
+            className="!border-grey-200"
             title={
-              <span>
-                <SendOutlined style={{ marginRight: 8 }} />
+              <span className="!text-primary">
+                <SendOutlined className="!mr-2" />
                 Send Notification
               </span>
             }
@@ -330,11 +331,15 @@ export const Notifications = () => {
                 count={userCount}
                 showZero
                 overflowCount={9999}
-                style={{ backgroundColor: userCount > 0 ? "#1890ff" : "#ccc" }}
+                className="![&>.ant-badge-count]:!bg-primary"
               >
                 <Tag
                   icon={<UserOutlined />}
-                  color={userCount > 0 ? "blue" : "default"}
+                  className={`!flex !items-center ${
+                    userCount > 0
+                      ? "!bg-primary-light !text-primary"
+                      : "!bg-grey-100 !text-grey-600"
+                  }`}
                 >
                   {userCount.toLocaleString()} recipients
                 </Tag>
@@ -350,10 +355,16 @@ export const Notifications = () => {
             >
               <Form.Item
                 name="type"
-                label="Notification Type"
+                label={
+                  <span className="!text-grey-700">Notification Type</span>
+                }
                 rules={[{ required: true, message: "Please select type" }]}
               >
-                <Select placeholder="Select type">
+                <Select
+                  placeholder="Select type"
+                  className="hover:!border-primary focus:!border-primary"
+                  dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
+                >
                   {notificationTypes.map((type) => (
                     <Option key={type} value={type}>
                       {type}
@@ -364,13 +375,15 @@ export const Notifications = () => {
 
               <Form.Item
                 name="target"
-                label="Target Audience"
+                label={<span className="!text-grey-700">Target Audience</span>}
                 rules={[{ required: true, message: "Please select audience" }]}
               >
                 <Select
                   mode="multiple"
                   placeholder="Select recipients"
                   maxTagCount="responsive"
+                  className="hover:!border-primary focus:!border-primary"
+                  dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
                 >
                   {targetOptions.map((option) => (
                     <Option key={option} value={option}>
@@ -382,7 +395,7 @@ export const Notifications = () => {
 
               <Form.Item
                 name="message"
-                label="Message"
+                label={<span className="!text-grey-700">Message</span>}
                 rules={[
                   { required: true, message: "Please enter message" },
                   { max: 200, message: "Message too long" },
@@ -393,6 +406,7 @@ export const Notifications = () => {
                   showCount
                   maxLength={200}
                   placeholder="Enter notification message (max 200 chars)"
+                  className="hover:!border-primary focus:!border-primary"
                 />
               </Form.Item>
 
@@ -407,7 +421,7 @@ export const Notifications = () => {
                     getFieldValue("type") === "Book Update") && (
                     <Form.Item
                       name="bookId"
-                      label="Book"
+                      label={<span className="!text-grey-700">Book</span>}
                       rules={[
                         { required: true, message: "Please select a book" },
                       ]}
@@ -416,7 +430,9 @@ export const Notifications = () => {
                         placeholder="Select book"
                         showSearch
                         optionFilterProp="children"
-                        suffixIcon={<BookOutlined />}
+                        suffixIcon={<BookOutlined className="!text-grey-500" />}
+                        className="hover:!border-primary focus:!border-primary"
+                        dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
                       >
                         {books.map((book) => (
                           <Option key={book.id} value={book.id}>
@@ -433,6 +449,7 @@ export const Notifications = () => {
                 <Checkbox
                   checked={scheduled}
                   onChange={(e) => setScheduled(e.target.checked)}
+                  className="[&>.ant-checkbox-inner]:hover:!border-primary [&>.ant-checkbox-checked>.ant-checkbox-inner]:!bg-primary [&>.ant-checkbox-checked>.ant-checkbox-inner]:!border-primary"
                 >
                   Schedule for later
                 </Checkbox>
@@ -441,7 +458,9 @@ export const Notifications = () => {
               {scheduled && (
                 <Form.Item
                   name="sendDate"
-                  label="Schedule Date & Time"
+                  label={
+                    <span className="!text-grey-700">Schedule Date & Time</span>
+                  }
                   rules={[{ required: true, message: "Please select date" }]}
                 >
                   <DatePicker
@@ -450,7 +469,7 @@ export const Notifications = () => {
                     disabledDate={(current) =>
                       current && current < dayjs().startOf("day")
                     }
-                    style={{ width: "100%" }}
+                    className="!w-full hover:!border-primary focus:!border-primary [&_.ant-picker-input>input]:!placeholder-grey-400"
                   />
                 </Form.Item>
               )}
@@ -462,8 +481,7 @@ export const Notifications = () => {
                   icon={scheduled ? <ScheduleOutlined /> : <SendOutlined />}
                   size="large"
                   loading={sending}
-                  // disabled={userCount === 0}
-                  block
+                  className="!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark !w-full"
                 >
                   {scheduled
                     ? "Schedule Notification"
@@ -477,9 +495,10 @@ export const Notifications = () => {
         {/* Notification History */}
         <Col xs={24} md={14}>
           <Card
+            className="!border-grey-200"
             title={
-              <span>
-                <HistoryOutlined style={{ marginRight: 8 }} />
+              <span className="!text-primary">
+                <HistoryOutlined className="!mr-2" />
                 Notification History
               </span>
             }
@@ -495,7 +514,7 @@ export const Notifications = () => {
                   showSizeChanger: true,
                   pageSizeOptions: ["5", "10", "20", "50"],
                 }}
-                style={{ marginTop: 16 }}
+                className="!mt-4 [&_.ant-table-thead>tr>th]:!bg-grey-50 [&_.ant-table-tbody>tr:hover>td]:!bg-primary-light"
               />
             </Spin>
           </Card>
@@ -505,10 +524,10 @@ export const Notifications = () => {
       {/* Confirmation Modal */}
       <Modal
         title={
-          <>
-            <ExclamationCircleOutlined /> Confirm{" "}
-            {scheduled ? "Scheduling" : "Sending"}
-          </>
+          <span className="!text-primary">
+            <ExclamationCircleOutlined className="!mr-2" />
+            Confirm {scheduled ? "Scheduling" : "Sending"}
+          </span>
         }
         open={isModalOpen}
         onOk={handleConfirmSubmit}
@@ -516,6 +535,14 @@ export const Notifications = () => {
         okText="Confirm"
         cancelText="Cancel"
         confirmLoading={sending}
+        okButtonProps={{
+          className:
+            "!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark",
+        }}
+        cancelButtonProps={{
+          className:
+            "hover:!text-primary !border-grey-300 hover:!border-primary",
+        }}
       >
         <p>This will send a notification to approximately {userCount} users.</p>
         <p>Are you sure you want to continue?</p>

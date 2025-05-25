@@ -60,3 +60,7 @@
 .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
   @apply bg-primary-light;
 }
+
+.ant-picker-dropdown {
+  @apply !shadow-lg;
+}

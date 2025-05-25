@@ -39,7 +39,7 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
 
   const menu = (
     <Menu>
-      <Menu.Item key="logout" danger>
+      <Menu.Item key="logout" className='!bg-error !text-white'>
         <Popconfirm
           title="Are you sure you want to logout?"
           onConfirm={handleLogout}
