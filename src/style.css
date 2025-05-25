@@ -1,45 +1,46 @@
 @import "tailwindcss";
 
 @theme {
-    /* Primary */
-    --color-primary: #01301B;
-    --color-primary-dark: #012C17;
-    --color-primary-light: #B8D4CB;
+  /* Primary */
+  --color-primary: #01301B;
+  --color-primary-dark: #012C17;
+  --color-primary-light: #B8D4CB;
 
-    /* Secondary */
-    --color-secondary: #F5CA0B;
-    --color-secondary-light: #FFF7D0;
+  /* Secondary */
+  --color-secondary: #F5CA0B;
+  --color-secondary-light: #FFF7D0;
 
-    /* Alert & Status */
-    --color-success: #2BB673;
-    --color-info: #1C75BC;
-    --color-warning: #2BB673; /* You may want to verify this */
-    --color-error: #ED1C24;
-    --color-disabled: #2BB673;
-    --color-disabled-button: #1C75BC;
+  /* Alert & Status */
+  --color-success: #2BB673;
+  --color-info: #1C75BC;
+  --color-warning: #2BB673;
+  /* You may want to verify this */
+  --color-error: #ED1C24;
+  --color-disabled: #2BB673;
+  --color-disabled-button: #1C75BC;
 
-    /* Greyscale */
-    --color-grey-900: #212121;
-    --color-grey-800: #424242;
-    --color-grey-700: #616161;
-    --color-grey-600: #757575;
-    --color-grey-500: #9E9E9E;
-    --color-grey-400: #BDBDBD;
-    --color-grey-300: #E0E0E0;
-    --color-grey-200: #EEEEEE;
-    --color-grey-100: #F5F5F5;
-    --color-grey-50:  #FAFAFA;
+  /* Greyscale */
+  --color-grey-900: #212121;
+  --color-grey-800: #424242;
+  --color-grey-700: #616161;
+  --color-grey-600: #757575;
+  --color-grey-500: #9E9E9E;
+  --color-grey-400: #BDBDBD;
+  --color-grey-300: #E0E0E0;
+  --color-grey-200: #EEEEEE;
+  --color-grey-100: #F5F5F5;
+  --color-grey-50: #FAFAFA;
 
-    /* Gradient Colors */
-    --color-gradient-green-start: #01301B;
-    --color-gradient-green-end: #018E1B;
-    --color-gradient-yellow-start: #01301B;
-    --color-gradient-yellow-end: #018E1B;
+  /* Gradient Colors */
+  --color-gradient-green-start: #01301B;
+  --color-gradient-green-end: #018E1B;
+  --color-gradient-yellow-start: #01301B;
+  --color-gradient-yellow-end: #018E1B;
 
-    /* Dark Colors */
-    --color-dark-1: #181A20;
-    --color-dark-2: #1F222A;
-    --color-dark-3: #35383F;
+  /* Dark Colors */
+  --color-dark-1: #181A20;
+  --color-dark-2: #1F222A;
+  --color-dark-3: #35383F;
 }
 
 
@@ -49,4 +50,13 @@
 
 .ant-menu {
   background: #fff !important;
+}
+
+/* Customize Ant Design dropdowns */
+.ant-select-dropdown {
+  @apply border border-grey-200 shadow-lg;
+}
+
+.ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  @apply bg-primary-light;
 }

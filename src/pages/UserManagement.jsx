@@ -82,7 +82,7 @@ export const UserManagement = () => {
       q,
       (querySnapshot) => {
         console.log("querySnapshot.docs", querySnapshot.docs);
-        
+
         const usersData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -98,7 +98,7 @@ export const UserManagement = () => {
     );
 
     return unsubscribe;
-  };  
+  };
 
   useEffect(() => {
     const unsubscribe = fetchUsers();
@@ -106,7 +106,6 @@ export const UserManagement = () => {
   }, [statusFilter, dateRange]);
 
   console.log("users", users);
-
 
   // Apply search filter
   useEffect(() => {
@@ -256,29 +255,31 @@ export const UserManagement = () => {
   ];
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">User Management</h1>
+    <div className="p-4 sm:p-6">
+      <h1 className="text-2xl font-bold text-primary mb-6">User Management</h1>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
+      <div className="bg-white p-4 rounded-lg shadow border border-grey-200 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="col-span-1 md:col-span-2 lg:col-span-1">
             <Input
               placeholder="Search by username or email"
-              prefix={<SearchOutlined />}
+              prefix={<SearchOutlined className="!text-grey-500" />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
+              className="hover:!border-primary focus:!border-primary"
             />
           </div>
 
           <div>
             <Select
               placeholder="Filter by status"
-              style={{ width: "100%" }}
+              className="!w-full"
               onChange={setStatusFilter}
               allowClear
-              suffixIcon={<FilterOutlined />}
+              suffixIcon={<FilterOutlined className="!text-grey-500" />}
+              dropdownClassName="![&_.ant-select-item]:hover:bg-primary-light ![&_.ant-select-item-option-selected]:bg-primary-light"
             >
               <Option value="active">Active</Option>
               <Option value="inactive">Inactive</Option>
@@ -288,7 +289,7 @@ export const UserManagement = () => {
 
           <div>
             <RangePicker
-              style={{ width: "100%" }}
+              className="!w-full hover:!border-primary focus:!border-primary ![&_.ant-picker-input>input]:placeholder-grey-400"
               placeholder={["Start Date", "End Date"]}
               onChange={setDateRange}
               disabledDate={(current) =>
@@ -302,6 +303,7 @@ export const UserManagement = () => {
               type="primary"
               icon={<DownloadOutlined />}
               onClick={handleExport}
+              className="!bg-success hover:!bg-primary !border-primary hover:!border-primary-dark"
             >
               Export CSV
             </Button>
@@ -310,55 +312,72 @@ export const UserManagement = () => {
       </div>
 
       {/* User Table */}
-      <Table
-        columns={columns}
-        dataSource={filteredUsers}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          ...pagination,
-          showSizeChanger: true,
-          pageSizeOptions: ["10", "20", "50", "100"],
-          showTotal: (total) => `Total ${total} users`,
-        }}
-        onChange={handleTableChange}
-        scroll={{ x: true }}
-      />
+      <div className="bg-white rounded-lg shadow border border-grey-200 overflow-hidden">
+        <Table
+          columns={columns}
+          dataSource={filteredUsers}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            pageSizeOptions: ["10", "20", "50", "100"],
+            showTotal: (total) => (
+              <span className="text-grey-600">Total {total} users</span>
+            ),
+          }}
+          onChange={handleTableChange}
+          scroll={{ x: true }}
+          className="![&_.ant-table-thead>tr>th]:!bg-grey-50 ![&_.ant-table-tbody>tr:hover>td]:!bg-primary-light"
+        />
+      </div>
 
       {/* Edit Modal */}
       <Modal
-        title="Edit User"
+        title={<span className="!text-primary">Edit User</span>}
         visible={editModalVisible}
         onOk={saveEdit}
         onCancel={() => setEditModalVisible(false)}
         confirmLoading={loading}
+        okButtonProps={{
+          className:
+            "!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark",
+        }}
+        cancelButtonProps={{
+          className:
+            "hover:!text-primary !border-grey-300 hover:!border-primary",
+        }}
+        bodyStyle={{ padding: "24px" }}
       >
         <Form form={editForm} layout="vertical">
           <Form.Item
             name="username"
-            label="Username"
+            label={<span className="!text-grey-700">Username</span>}
             rules={[{ required: true, message: "Please input username!" }]}
           >
-            <Input />
+            <Input className="hover:!border-primary focus:!border-primary" />
           </Form.Item>
 
           <Form.Item
             name="email"
-            label="Email"
+            label={<span className="!text-grey-700">Email</span>}
             rules={[
               { required: true, message: "Please input email!" },
               { type: "email", message: "Please input valid email!" },
             ]}
           >
-            <Input />
+            <Input className="hover:!border-primary focus:!border-primary" />
           </Form.Item>
 
           <Form.Item
             name="status"
-            label="Status"
+            label={<span className="!text-grey-700">Status</span>}
             rules={[{ required: true, message: "Please select status!" }]}
           >
-            <Select>
+            <Select
+              className="hover:!border-primary focus:!border-primary"
+              dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
+            >
               <Option value="active">Active</Option>
               <Option value="inactive">Inactive</Option>
               <Option value="banned">Banned</Option>
