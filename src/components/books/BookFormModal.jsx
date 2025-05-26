@@ -6,6 +6,7 @@ import Select from "react-select";
 import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
+import dayjs from "dayjs";
 
 export const BookFormModal = ({
   isOpen,
@@ -62,7 +63,10 @@ export const BookFormModal = ({
       setValue("description", initialData.description);
       // setValue("categories", initialData.categories);
       setValue("language", initialData.language || "English");
-      setValue("releaseDate", initialData.releaseDate);
+      setValue(
+        "releaseDate",
+        dayjs(new Date(initialData.releaseDate)).format("YYYY-MM-DD")
+      );
       setValue("pricePkr", Number(initialData.prices?.pkr || 0));
       setValue("priceUsd", Number(initialData.prices?.usd || 0));
       setValue("discountType", initialData.discount?.type || "percentage");

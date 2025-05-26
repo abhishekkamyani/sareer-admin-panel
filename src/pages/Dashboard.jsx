@@ -5,6 +5,8 @@ import {
   where,
   getDocs,
   getCountFromServer,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import ReactECharts from "echarts-for-react";
@@ -21,6 +23,8 @@ import {
   BarChartOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useQuery } from "@tanstack/react-query";
+import { getCategories } from "../utils/firebaseApis";
 
 const { RangePicker } = DatePicker;
 
@@ -38,7 +42,35 @@ export const Dashboard = () => {
     dayjs().subtract(7, "day"),
     dayjs(),
   ]);
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: getCategories,
+  });
+
   const [loading, setLoading] = useState(false);
+
+  const [salesByCategoryOption, setSalesByCategoryOption] = useState({
+    title: {
+      text: "Sales by Category",
+    },
+    tooltip: {},
+    legend: {
+      data: ["Sales"],
+    },
+    xAxis: {
+      type: "category",
+      data: categories || [],
+    },
+    yAxis: {},
+    series: [
+      {
+        name: "Sales",
+        type: "bar",
+        data: [0, 0, 0, 0], // Initialize with zeros
+      },
+    ],
+  });
 
   // Fetch dashboard statistics
   const fetchStats = async () => {
@@ -55,34 +87,68 @@ export const Dashboard = () => {
       );
       const newReleasesSnapshot = await getCountFromServer(newReleasesQuery);
 
-      // TODO: Implement these queries based on your Firestore structure
-      // Total Sales
-      // Active Users (users with lastLogin in last 24h)
-      // Total Copies Sold
+      // Total Sales (PKR and USD)
+      const ordersCol = collection(db, "orders");
+
+      const completedOrdersQuery = query(
+        ordersCol,
+        where("paymentStatus", "==", "completed")
+      );
+      const ordersSnapshot = await getDocs(completedOrdersQuery);
+
+      let totalPKR = 0;
+      let totalUSD = 0;
+      let totalCopies = 0;
+
+      ordersSnapshot.forEach((doc) => {
+        const order = doc.data();
+        // if (order.currency === "PKR") {
+        totalPKR += order.total;
+        // } else if (order.currency === "USD") {
+        // totalUSD += order.total;
+        // }
+        totalCopies += order.items.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        );
+      });
+
+      // Active Users (last 24 hours)
+      const usersCol = collection(db, "users");
+      const activeUsersQuery = query(
+        usersCol,
+        where("lastLogin", ">=", dayjs().subtract(1, "day").toDate())
+      );
+      const activeUsersSnapshot = await getCountFromServer(activeUsersQuery);
 
       setStats({
         totalBooks: booksSnapshot.data().count,
         newReleases: newReleasesSnapshot.data().count,
-        totalSalesPKR: 0, // Replace with actual query
-        totalSalesUSD: 0, // Replace with actual query
-        activeUsers: 0, // Replace with actual query
-        totalCopiesSold: 0, // Replace with actual query
+        totalSalesPKR: totalPKR,
+        totalSalesUSD: totalUSD,
+        activeUsers: activeUsersSnapshot.data().count,
+        totalCopiesSold: totalCopies,
       });
 
-      // Fetch recent activities
-      const activitiesQuery = query();
-      // collection(db, 'activities'),
-      // where('timestamp', '>=', dateRange[0].toDate()),
-      // where('timestamp', '<=', dateRange[1].toDate()),
-      // orderBy('timestamp', 'desc'),
-      // limit(5)
+      // Fetch recent activities (from orders)
+      const activitiesQuery = query(
+        ordersCol,
+        orderBy("orderDate", "desc"),
+        limit(5)
+      );
       const activitiesSnapshot = await getDocs(activitiesQuery);
+
       setActivities(
-        activitiesSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          date: doc.data().timestamp.toDate().toLocaleString(),
-        }))
+        activitiesSnapshot.docs.map((doc) => {
+          const order = doc.data();
+          return {
+            id: doc.id,
+            bookName: order.items[0]?.title || "Multiple Books",
+            action: "Purchase",
+            date: order.orderDate.toDate().toLocaleString(),
+            user: order.username,
+          };
+        })
       );
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -91,58 +157,100 @@ export const Dashboard = () => {
     }
   };
 
+  // Call these in useEffect
   useEffect(() => {
     fetchStats();
-  }, [dateRange]);
+    fetchSalesByCategory();
+    fetchReadingAnalytics();
+  }, [dateRange, categories]);
 
-  // Sales by Category Chart
-  const salesByCategoryOption = {
-    title: {
-      text: "Sales by Category",
-    },
-    tooltip: {},
-    legend: {
-      data: ["Sales"],
-    },
-    xAxis: {
-      data: ["Fiction", "Non-Fiction", "Poetry", "Biography", "Children"],
-    },
-    yAxis: {},
-    series: [
-      {
-        name: "Sales",
-        type: "bar",
-        data: [120, 200, 150, 80, 70],
+  // Fetch sales by category data
+  const fetchSalesByCategory = async () => {
+    const ordersCol = collection(db, "orders");
+    const snapshot = await getDocs(ordersCol);
+
+    const categorySales = categories.reduce((acc, category) => {
+      acc[category] = 0;
+      return acc;
+    }, {});
+
+    snapshot.forEach((doc) => {
+      const order = doc.data();
+      order.items.forEach((item) => {
+        item.categories?.forEach((category) => {
+          if (categorySales.hasOwnProperty(category)) {
+            categorySales[category] += item.price * item.quantity;
+          }
+        });
+      });
+    });
+
+    setSalesByCategoryOption((prev) => ({
+      ...prev,
+      xAxis: {
+        ...prev.xAxis,
+        data: Object.keys(categorySales),
       },
-    ],
+      series: [
+        {
+          ...prev.series[0],
+          data: Object.values(categorySales),
+        },
+      ],
+    }));
   };
 
-  // Reading Analytics Chart
+  // Reading Analytics Chart (pages read)
   const readingAnalyticsOption = {
     title: {
-      text: "Pages Read (Last 7 Days)",
+      text: "Reading Activity (Last 7 Days)",
     },
     tooltip: {
       trigger: "axis",
     },
-    legend: {
-      data: ["Pages Read"],
-    },
     xAxis: {
       type: "category",
-      data: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      data: Array.from({ length: 7 }, (_, i) =>
+        dayjs()
+          .subtract(6 - i, "day")
+          .format("ddd, MMM D")
+      ),
     },
     yAxis: {
       type: "value",
+      name: "Pages Read",
     },
     series: [
       {
         name: "Pages Read",
         type: "line",
-        data: [120, 132, 101, 134, 90, 230, 210],
+        data: Array(7).fill(0), // Initialize with zeros
         smooth: true,
       },
     ],
+  };
+
+  // Fetch reading analytics
+  const fetchReadingAnalytics = async () => {
+    const usersCol = collection(db, "users");
+    const snapshot = await getDocs(usersCol);
+
+    const dailyPages = Array(7).fill(0);
+
+    snapshot.forEach((doc) => {
+      const user = doc.data();
+      user.readingProgress?.forEach((book) => {
+        const readDate = book.lastReadAt?.toDate();
+        if (readDate) {
+          const daysAgo = dayjs().diff(readDate, "day");
+          if (daysAgo >= 0 && daysAgo < 7) {
+            dailyPages[6 - daysAgo] += book.totalPagesRead || 0;
+          }
+        }
+      });
+    });
+
+    readingAnalyticsOption.series[0].data = dailyPages;
   };
 
   // Activities Table Columns
@@ -276,6 +384,8 @@ export const Dashboard = () => {
           <ReactECharts
             option={salesByCategoryOption}
             style={{ height: 300, width: "100%" }}
+            lazyUpdate={true}
+            opts={{ renderer: "svg" }} // Better performance
           />
         </Card>
         <Card

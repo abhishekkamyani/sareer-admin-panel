@@ -3,7 +3,7 @@ import { addDoc, collection, Firestore, getFirestore, Timestamp } from "firebase
 import { getStorage } from "firebase/storage";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
-import { users } from ".";
+import { orders, users } from ".";
 
 // require('dotenv').config()
 const env = import.meta.env;
@@ -41,8 +41,6 @@ const adminLogout = () => signOut(auth);
 // Firestore.Timestamp.fromDate()
 
 async function seedUsers() {
-  console.log(users[0].registrationDate);
-  
 
   users.forEach(async (user) => {
     await addDoc(collection(db, 'users'), {
@@ -64,7 +62,29 @@ async function seedUsers() {
   console.log('All users added successfully!');
 }
 
+async function seedOrders() {
+
+  orders.forEach(async (order) => {
+    await addDoc(collection(db, 'orders'), {
+      ...order,
+      orderDate: Timestamp.fromDate(order.orderDate),
+      createdAt: Timestamp.fromDate(order.createdAt),
+      items: order.items.map(item => ({
+        ...item,
+        // Add book categories for reporting
+        categories: item.bookId === "5HftR1wT63igOU4zrhGh" ? ["Biography", "Novel"] :
+          item.bookId === "KCiejHq06YJxONzoI0QC" ? ["Biography", "New Arrival"] :
+            ["novel", "Poetry"],
+        language: item.bookId === "5HftR1wT63igOU4zrhGh" ? "English" : "Urdu"
+      }))
+    });
+  });
+
+
+  console.log('All orders added successfully!');
+}
 
 
 
-export { db, storage, auth, messaging, adminLogin, adminLogout, seedUsers };
+
+export { db, storage, auth, messaging, adminLogin, adminLogout, seedUsers, seedOrders };

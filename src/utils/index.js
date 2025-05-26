@@ -1,6 +1,7 @@
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, Timestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db } from "./firebase";
+import dayjs from "dayjs";
 
 export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
     try {
@@ -68,13 +69,22 @@ export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
     }
 };
 
+function convertTimestampToDate(timestamp) {
+    const milliseconds = timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000;
+    const date = dayjs(milliseconds);
+    return date;
+}
+
 export const fetchBooks = async () => {
     const snapshot = await getDocs(collection(db, "books"));
     return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data() // <-- This is what returns clean data
+        id: doc.id,
+        ...doc.data(), // <-- This is what returns clean data
+        // releaseDate: Timestamp.fromDate(doc.data()?.releaseDate)
+        releaseDate: doc.data().releaseDate?.toDate(),
+        // releaseDate: doc.data()?.releaseDate?.toDate(),
     }));
-  };
+};
 
 export const users = [
     {
@@ -253,5 +263,150 @@ export const users = [
         ],
         cart: [],
         deviceTokens: ["fcm_token_omar505"]
+    }
+];
+
+export const orders = [
+    // Order 1: Alice purchases Maths Book (ebook)
+    {
+        userId: "4Q1DbO26b1gZ2iu08mwR", // Alice Johnson
+        userEmail: "alice.johnson1@example.com",
+        username: "alice_j",
+        items: [
+            {
+                bookId: "5HftR1wT63igOU4zrhGh", // Maths Book
+                title: "Maths Book",
+                price: 4500, // Discounted PKR
+                originalPrice: 5000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            }
+        ],
+        subtotal: 4500,
+        discount: 500,
+        total: 4500,
+        paymentMethod: "PayPal",
+        paymentStatus: "completed",
+        orderDate: new Date("2025-03-10T14:25:00Z"),
+        createdAt: new Date("2025-03-10T14:25:00Z") // For sorting
+    },
+
+    // Order 2: Fatima purchases MyNEWBOOK (ebook)
+    {
+        userId: "LTGBQguHgmj9Oee4ghDp", // Fatima Khan
+        userEmail: "fatima.khan@example.com",
+        username: "fatima_k",
+        items: [
+            {
+                bookId: "KCiejHq06YJxONzoI0QC", // MyNEWBOOK
+                title: "MyNEWBOOk",
+                price: 9000, // Discounted PKR
+                originalPrice: 10000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            }
+        ],
+        subtotal: 9000,
+        discount: 1000,
+        total: 9000,
+        paymentMethod: "EasyPaisa",
+        paymentStatus: "completed",
+        orderDate: new Date("2025-05-15T18:30:00Z"),
+        createdAt: new Date("2025-05-15T18:30:00Z")
+    },
+
+    // Order 3: Omar purchases all three books (ebooks)
+    {
+        userId: "XH34P7nYrEYkvH20FZNU", // Omar Khalid
+        userEmail: "omar.khalid@example.com",
+        username: "omar_k",
+        items: [
+            {
+                bookId: "5HftR1wT63igOU4zrhGh", // Maths Book
+                title: "Maths Book",
+                price: 4500,
+                originalPrice: 5000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            },
+            {
+                bookId: "KCiejHq06YJxONzoI0QC", // MyNEWBOOK
+                title: "MyNEWBOOk",
+                price: 9000,
+                originalPrice: 10000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            },
+            {
+                bookId: "YPrL0TZQEyklbJ1aVm2w", // Poetry
+                title: "book 2025",
+                price: 900,
+                originalPrice: 1000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            }
+        ],
+        subtotal: 14400,
+        discount: 1600,
+        total: 14400,
+        paymentMethod: "Bank Transfer",
+        paymentStatus: "completed",
+        orderDate: new Date("2025-05-20T11:15:00Z"),
+        createdAt: new Date("2025-05-20T11:15:00Z")
+    },
+
+    // Order 4: Saleh purchases Poetry (ebook)
+    {
+        userId: "REu3G6EyHW9hdvQ5zpmx", // Saleh Mahmood
+        userEmail: "saleh.mahmood@example.com",
+        username: "saleh_m",
+        items: [
+            {
+                bookId: "YPrL0TZQEyklbJ1aVm2w", // Poetry
+                title: "book 2025",
+                price: 900,
+                originalPrice: 1000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            }
+        ],
+        subtotal: 900,
+        discount: 100,
+        total: 900,
+        paymentMethod: "EasyPaisa",
+        paymentStatus: "completed",
+        orderDate: new Date("2025-05-18T09:45:00Z"),
+        createdAt: new Date("2025-05-18T09:45:00Z")
+    },
+
+    // Order 5: Bob's pending order
+    {
+        userId: "MZ1IIOBxO9sjo4Dz11lF", // Bob Smith
+        userEmail: "bob.smith@example.com",
+        username: "bob_s",
+        items: [
+            {
+                bookId: "5HftR1wT63igOU4zrhGh", // Maths Book
+                title: "Maths Book",
+                price: 4500,
+                originalPrice: 5000,
+                currency: "PKR",
+                format: "ebook",
+                quantity: 1
+            }
+        ],
+        subtotal: 4500,
+        discount: 500,
+        total: 4500,
+        paymentMethod: "PayPal",
+        paymentStatus: "pending",
+        orderDate: new Date("2025-05-22T16:30:00Z"),
+        createdAt: new Date("2025-05-22T16:30:00Z")
     }
 ];

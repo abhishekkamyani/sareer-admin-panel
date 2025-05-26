@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
-import { db, seedUsers } from "../utils/firebase";
+import { db, seedOrders, seedUsers } from "../utils/firebase";
 
 import {
   addDoc,
@@ -16,6 +16,7 @@ import {
   onSnapshot,
   getDocs,
   writeBatch,
+  Timestamp,
 } from "firebase/firestore";
 
 import { CategoryModal } from "../components/books/CategoryModal";
@@ -106,7 +107,7 @@ export const BookManagement = () => {
         description: formData.description,
         categories: formData.categories || [],
         language: formData.language,
-        releaseDate: formData.releaseDate,
+        releaseDate: Timestamp.fromDate(new Date(formData.releaseDate)),
         prices: {
           pkr: formData.pricePkr,
           usd: formData.priceUsd,
@@ -318,12 +319,12 @@ export const BookManagement = () => {
         <h1 className="text-2xl font-bold text-primary">Book Management</h1>
 
         <div className="flex gap-3 w-full sm:w-auto">
-          {/* <button
-            onClick={seedUsers}
+          <button
+            onClick={seedOrders}
             className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
           >
-            Seed Users
-          </button> */}
+            Seed Orders
+          </button>
           <button
             onClick={() => setIsCategoryModalOpened(true)}
             className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
