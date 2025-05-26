@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   Input,
@@ -18,6 +18,7 @@ import {
   DeleteOutlined,
   DownloadOutlined,
   FilterOutlined,
+  BookOutlined,
 } from "@ant-design/icons";
 // import { csvExport } from "../utils/export";
 import { db } from "../utils/firebase";
@@ -33,9 +34,16 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import dayjs from "dayjs";
+import { useQuery } from "@tanstack/react-query";
+import { fetchBooks } from "../utils";
+import { utils, writeFile } from "xlsx";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+
+// const formattedDate = dayjs(user.registrationDate).format(
+//   "YYYY-MM-DD HH:mm:ss"
+// );
 
 export const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -45,26 +53,48 @@ export const UserManagement = () => {
     current: 1,
     pageSize: 10,
   });
+
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [booksModallVisible, setBooksModalVisible] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [editForm] = Form.useForm();
+  const tableRef = useRef();
+
+  const showBooksModal = (user) => {
+    setCurrentUser(user);
+    setBooksModalVisible(true);
+  };
+
+  const {
+    data: booksData,
+    isLoading: booksLoading,
+    error,
+  } = useQuery({
+    queryKey: ["books"],
+    queryFn: fetchBooks,
+  });
+
+  const getBookName = (bookId) => {
+    const book = booksData.find((b) => b.id === bookId);
+    return book?.name || "Unknown Book";
+  };
 
   // Fetch users from Firestore
   const fetchUsers = () => {
     setLoading(true);
 
     // Start with base collection reference
-    let q = collection(db, "Users");
+    let q = collection(db, "users");
 
     // Apply filters if they exist
     const conditions = [];
     if (statusFilter) {
       conditions.push(where("status", "==", statusFilter));
     }
-    if (dateRange?.[0] && dateRange?.[1]) {
+    if (dateRange && dateRange?.[0] && dateRange?.[1]) {
       conditions.push(
         where("registrationDate", ">=", dateRange[0].startOf("day").toDate()),
         where("registrationDate", "<=", dateRange[1].endOf("day").toDate())
@@ -87,6 +117,7 @@ export const UserManagement = () => {
           id: doc.id,
           ...doc.data(),
           registrationDate: doc.data().registrationDate?.toDate() || new Date(),
+          lastLogin: doc.data().lastLogin?.toDate() || new Date(),
         }));
         setUsers(usersData);
         setLoading(false);
@@ -163,21 +194,42 @@ export const UserManagement = () => {
     }
   };
 
-  // Export to CSV
   const handleExport = () => {
-    const headers = [
-      { label: "Username", key: "username" },
-      { label: "Email", key: "email" },
-      { label: "Registration Date", key: "registrationDate" },
-      { label: "Status", key: "status" },
-      { label: "Books Purchased", key: "booksPurchased" },
-    ];
+    const filteredData = filteredUsers;
 
-    // csvExport({
-    //   data: filteredUsers,
-    //   headers,
-    //   filename: "users_export.csv",
-    // });
+    // Prepare data for export
+    const exportData = filteredData.map((item) => ({
+      Email: item.email,
+      Username: item.username,
+      "Registration Date": new Date(item.registrationDate).toLocaleDateString(),
+      Status: item.status,
+      "Last Login": new Date(item.lastLogin).toLocaleDateString(),
+      "Books Purchased": item.purchasedBooks?.length || 0,
+      "Purchased Titles":
+        item.purchasedBooks
+          ?.map((book) => {
+            const bookData = booksData.find((b) => b.id === book.bookId);
+            return bookData?.name || "Unknown Book";
+          })
+          .join(", ") || "None",
+      // Add other fields as needed
+    }));
+
+    // Create worksheet
+    const ws = utils.json_to_sheet(exportData);
+
+    // Create workbook
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Users");
+
+    // Export to CSV
+    writeFile(
+      wb,
+      "users_export_${new Date().toISOString().split('T')[0]}.csv",
+      {
+        bookType: "csv",
+      }
+    );
   };
 
   // Table columns
@@ -198,9 +250,14 @@ export const UserManagement = () => {
       title: "Registration Date",
       dataIndex: "registrationDate",
       key: "registrationDate",
-      sorter: (a, b) =>
-        new Date(a.registrationDate) - new Date(b.registrationDate),
+      render: (date) => dayjs(date).format("YYYY-MM-DD HH:mm:ss"),
+      sorter: (a, b) => {
+        const aTime = a.registrationDate?.getTime?.() || 0;
+        const bTime = b.registrationDate?.getTime?.() || 0;
+        return aTime - bTime;
+      },
     },
+
     {
       title: "Status",
       dataIndex: "status",
@@ -231,10 +288,25 @@ export const UserManagement = () => {
     },
     {
       title: "Books Purchased",
-      dataIndex: "booksPurchased",
-      key: "booksPurchased",
-      sorter: (a, b) => a.booksPurchased - b.booksPurchased,
+      dataIndex: "purchasedBooks",
+      key: "purchasedBooks",
+      render: (books, record) =>
+        books?.length > 0 ? (
+          <Button
+            type="primary"
+            shape="round"
+            icon={<BookOutlined />}
+            onClick={() => showBooksModal(record)}
+          >
+            {books.length}
+          </Button>
+        ) : (
+          <Tag color="default">No purchases</Tag>
+        ),
+      sorter: (a, b) =>
+        (a.purchasedBooks?.length || 0) - (b.purchasedBooks?.length || 0),
     },
+
     {
       title: "Actions",
       key: "actions",
@@ -314,6 +386,7 @@ export const UserManagement = () => {
       {/* User Table */}
       <div className="bg-white rounded-lg shadow border border-grey-200 overflow-hidden">
         <Table
+          ref={tableRef}
           columns={columns}
           dataSource={filteredUsers}
           rowKey="id"
@@ -384,6 +457,56 @@ export const UserManagement = () => {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+      <Modal
+        title={`Purchased Books - ${currentUser?.username}`}
+        visible={booksModallVisible}
+        onCancel={() => setBooksModalVisible(false)}
+        footer={null}
+        cancelText="Close"
+        width={800}
+      >
+        {currentUser?.purchasedBooks?.length ? (
+          <Table
+            columns={[
+              {
+                title: "Book ID",
+                dataIndex: "bookId",
+                key: "bookId",
+              },
+              {
+                title: "Book Name",
+                dataIndex: "bookId",
+                key: "bookName",
+                render: (bookId) => getBookName(bookId),
+              },
+              {
+                title: "Purchase Date",
+                dataIndex: "purchaseDate",
+                key: "purchaseDate",
+                // render: (date) => new Date(date).toLocaleString(),
+                render: (date) =>
+                  dayjs(date?.toDate()).format("YYYY-MM-DD HH:mm:ss"),
+              },
+              {
+                title: "Price Paid",
+                dataIndex: "pricePaid",
+                key: "pricePaid",
+                render: (price) => `₨${price.toLocaleString()}`,
+              },
+              {
+                title: "Payment Method",
+                dataIndex: "paymentMethod",
+                key: "paymentMethod",
+              },
+            ]}
+            dataSource={currentUser.purchasedBooks}
+            rowKey="bookId"
+            pagination={false}
+          />
+        ) : (
+          <p>No books purchased yet</p>
+        )}
       </Modal>
     </div>
   );

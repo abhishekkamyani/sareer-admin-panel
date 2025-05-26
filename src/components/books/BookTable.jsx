@@ -6,7 +6,7 @@ import { Edit, Delete } from "@mui/icons-material";
 const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
   // Define columns
   console.log("categories in book table", categories);
-  
+
   const columns = useMemo(
     () => [
       {
@@ -43,7 +43,33 @@ const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
         accessorKey: "categories",
         header: "Categories",
         filterVariant: "select",
-        filterSelectOptions: categories,
+        filterSelectOptions: categories, // e.g., ["Biography", "Novel"]
+        filterFn: (row, columnId, filterValue) => {
+          const rowCategories = row.getValue(columnId);
+          return Array.isArray(rowCategories)
+            ? rowCategories.includes(filterValue)
+            : false;
+        },
+        Cell: ({ cell }) => {
+          const categories = cell.getValue() || [];
+          return (
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+              {categories.map((category) => (
+                <Box
+                  key={category}
+                  sx={{
+                    backgroundColor: "#e0f7fa",
+                    borderRadius: "4px",
+                    padding: "2px 6px",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {category}
+                </Box>
+              ))}
+            </Box>
+          );
+        },
       },
       {
         accessorKey: "language",
@@ -54,7 +80,7 @@ const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
       {
         accessorKey: "prices.pkr",
         header: "Price (PKR)",
-        Cell: ({ cell }) => `₨. ${cell.getValue().toLocaleString()}`,
+        Cell: ({ cell }) => `₨. ${cell.getValue()?.toLocaleString()}`,
         size: 120,
       },
       {

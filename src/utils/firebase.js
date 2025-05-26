@@ -1,8 +1,9 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { addDoc, collection, Firestore, getFirestore, Timestamp } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
+import { users } from ".";
 
 // require('dotenv').config()
 const env = import.meta.env;
@@ -36,4 +37,34 @@ const adminLogin = (email, password) => {
 
 const adminLogout = () => signOut(auth);
 
-export { db, storage, auth, messaging, adminLogin, adminLogout };
+
+// Firestore.Timestamp.fromDate()
+
+async function seedUsers() {
+  console.log(users[0].registrationDate);
+  
+
+  users.forEach(async (user) => {
+    await addDoc(collection(db, 'users'), {
+      ...user,
+      registrationDate: Timestamp.fromDate(user.registrationDate),
+      lastLogin: Timestamp.fromDate(user.lastLogin),
+      purchasedBooks: user.purchasedBooks?.map(book => ({
+        ...book,
+        purchaseDate: Timestamp.fromDate(book.purchaseDate)
+      })),
+      cart: user.cart?.map(item => ({
+        ...item,
+        addedAt: Timestamp.fromDate(item.addedAt)
+      }))
+    });
+  });
+
+
+  console.log('All users added successfully!');
+}
+
+
+
+
+export { db, storage, auth, messaging, adminLogin, adminLogout, seedUsers };

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
-import { db } from "../utils/firebase";
+import { db, seedUsers } from "../utils/firebase";
 
 import {
   addDoc,
@@ -19,17 +19,18 @@ import {
 } from "firebase/firestore";
 
 import { CategoryModal } from "../components/books/CategoryModal";
-import { uploadFileToFirebase } from "../utils";
+import { fetchBooks, uploadFileToFirebase } from "../utils";
 import { getCategories } from "../utils/firebaseApis";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const BookManagement = () => {
-  const [books, setBooks] = useState([]);
+  // const [books, setBooks] = useState([]);
   // const [categories, setCategories] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
@@ -38,22 +39,37 @@ export const BookManagement = () => {
 
   console.log("categoriesQuery", categoriesQuery.isLoading);
 
-  const fetchBooks = () => {
-    const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
-      console.log("snapshot", snapshot.docs);
+  // const fetchBooks = () => {
+  //   const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
+  //     console.log("snapshot", snapshot.docs);
 
-      const booksData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setBooks(booksData);
-    });
-    return unsubscribe;
-  };
-  useEffect(() => {
-    const unsubscribe = fetchBooks();
-    return () => unsubscribe();
-  }, []);
+  //     const booksData = snapshot.docs.map((doc) => ({
+  //       id: doc.id,
+  //       ...doc.data(),
+  //     }));
+  //     setBooks(booksData);
+  //   });
+  //   return unsubscribe;
+  // };
+  // useEffect(() => {
+  //   const unsubscribe = fetchBooks();
+  //   return () => unsubscribe();
+  // }, []);
+
+  const {
+    data: books,
+    isLoading: booksLoading,
+    error,
+  } = useQuery({
+    queryKey: ["books"],
+    queryFn: fetchBooks,
+  });
+
+  console.log("books", books);
+
+  if (booksLoading) {
+    return <div>Loading...</div>;
+  }
 
   const upsertBookToFirestore = async (formData) => {
     try {
@@ -210,7 +226,8 @@ export const BookManagement = () => {
 
       await batch.commit();
 
-      fetchBooks();
+      // fetchBooks();
+      queryClient.invalidateQueries(["books"]);
       return { success: true, bookId: newBookId };
     } catch (error) {
       console.error("Error in upsertBookToFirestore:", error);
@@ -280,7 +297,8 @@ export const BookManagement = () => {
       await batch.commit();
 
       // 6. Refresh data
-      fetchBooks();
+      // fetchBooks();
+      queryClient.invalidateQueries(["categories"]);
 
       // Optional: Show success message
       toast.success("Book deleted successfully");
@@ -300,6 +318,12 @@ export const BookManagement = () => {
         <h1 className="text-2xl font-bold text-primary">Book Management</h1>
 
         <div className="flex gap-3 w-full sm:w-auto">
+          {/* <button
+            onClick={seedUsers}
+            className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
+          >
+            Seed Users
+          </button> */}
           <button
             onClick={() => setIsCategoryModalOpened(true)}
             className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
