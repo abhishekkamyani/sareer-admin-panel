@@ -68,7 +68,8 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
       {!isLargeScreen && (
         <Button
           type="text"
-          icon={sidebarOpen ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          // icon={sidebarOpen ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          icon={<MenuUnfoldOutlined />}
           onClick={() => setSidebarOpen(!sidebarOpen)}
           style={{ marginLeft: -16 }}
         />

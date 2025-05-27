@@ -29,12 +29,14 @@ import {
   getDocs,
   query,
   orderBy,
-  addDoc,
+  // Removed: addDoc, // No longer directly add to notifications for sending
   where,
   getCountFromServer,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import dayjs from "dayjs";
+// New Import: For calling Firebase Cloud Functions
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -51,12 +53,18 @@ export const Notifications = () => {
   const [sending, setSending] = useState(false);
   const [formValues, setFormValues] = useState({});
 
+  // Initialize Firebase Functions instance and callable function
+  const functions = getFunctions();
+  const sendOneSignalNotification = httpsCallable(functions, 'sendOneSignalNotification');
+
+
   // Fetch books and notifications
   const fetchData = async () => {
     setLoading(true);
     try {
       const [booksQuery, notifsQuery] = [
         query(collection(db, "books")),
+        // Notifications are now saved by the Cloud Function, so fetch them here.
         query(collection(db, "notifications"), orderBy("createdAt", "desc")),
       ];
 
@@ -84,7 +92,7 @@ export const Notifications = () => {
     }
   };
 
-  // Estimate number of recipients
+  // Estimate number of recipients (still valid for UI display)
   const estimateRecipients = async (target, bookId) => {
     if (!target || target.length === 0) {
       setUserCount(0);
@@ -92,21 +100,19 @@ export const Notifications = () => {
     }
 
     try {
-      // let q = query(collection(db, "Users"), where("fcmToken", "!=", ""));
-      let q = query(collection(db, "Users"));
+      let q = query(collection(db, "users"));
 
       if (target.includes("Specific Book Buyers") && bookId) {
         q = query(q, where(`purchasedBooks.${bookId}`, "==", true));
       }
 
       if (target.includes("Inactive Users")) {
-        const inactiveDate = new Date();
-        inactiveDate.setDate(inactiveDate.getDate() - 30);
+        const inactiveDate = dayjs().subtract(30, 'days').toDate(); // Use dayjs for consistency
         q = query(q, where("lastActive", "<", inactiveDate));
       }
 
       const snapshot = await getCountFromServer(q);
-      console.log("snapshot.data().count", snapshot.data());
+      console.log("Estimated recipients from Firestore:", snapshot.data().count);
 
       setUserCount(snapshot.data().count);
     } catch (error) {
@@ -130,114 +136,48 @@ export const Notifications = () => {
       message.error("Message must be 200 characters or less");
       return;
     }
-    setIsModalOpen(true); // Show modal first
+    // Show modal before calling the Cloud Function
+    setIsModalOpen(true);
   };
 
-  // 2. Handle actual submission after confirmation
+  // Handle actual submission after confirmation (calls the Cloud Function)
   const handleConfirmSubmit = async () => {
     try {
       setSending(true);
-      const values = form.getFieldsValue();
-      const sendDate = scheduled ? values.sendDate.toDate() : new Date();
+      const values = form.getFieldsValue(); // Get the latest form values
 
-      const notificationData = {
+      // Prepare data for the Cloud Function call
+      const payload = {
         type: values.type,
         target: values.target,
         message: values.message,
-        status: scheduled ? "scheduled" : "pending",
-        createdAt: new Date(),
-        sentAt: sendDate,
-        estimatedRecipients: userCount,
+        scheduledDate: scheduled ? values.sendDate.toDate().toISOString() : null, // Send as ISO string
+        estimatedRecipients: userCount, // Pass the estimated count for storage
         ...(values.bookId && { bookId: values.bookId }),
       };
 
-      await addDoc(collection(db, "notifications"), notificationData);
+      // Call the Firebase Cloud Function
+      const response = await sendOneSignalNotification(payload);
+
+      console.log("Notification Cloud Function response:", response.data);
+
       message.success(
-        `Notification ${scheduled ? "scheduled" : "sent"} to ${userCount} users`
+        `Notification ${scheduled ? "scheduled" : "sent"} via OneSignal.`
       );
       form.resetFields();
       setScheduled(false);
       setUserCount(0);
-      fetchData();
+      fetchData(); // Re-fetch history to show the newly sent/scheduled notification
     } catch (error) {
-      console.error("Error:", error);
-      message.error("Failed to send notification");
+      console.error("Error sending notification via OneSignal:", error);
+      message.error(
+        `Failed to ${scheduled ? "schedule" : "send"} notification: ${error.message}`
+      );
     } finally {
       setSending(false);
       setIsModalOpen(false);
     }
   };
-
-  // Handle form submission
-  // const handleSubmit = async (values) => {
-  //   // Debug: Log received values
-  //   console.log("Form values:", values);
-
-  //   if (values.message.length > 200) {
-  //     message.error("Message must be 200 characters or less");
-  //     return;
-  //   }
-
-  //   // Debug: Check if function is being called
-  //   console.log("Form submission initiated");
-
-  //   try {
-  //     // Create modal reference first
-  //     const modal = Modal.confirm({
-  //       title: `Confirm ${scheduled ? "Scheduling" : "Sending"}`,
-  //       icon: <ExclamationCircleOutlined />,
-  //       content: `This will send a notification to approximately ${userCount} users. Continue?`,
-  //       okText: "Confirm",
-  //       cancelText: "Cancel",
-  //       onOk: async () => {
-  //         console.log("User confirmed submission");
-  //         setSending(true);
-  //         try {
-  //           const sendDate = scheduled ? values.sendDate.toDate() : new Date();
-
-  //           const notificationData = {
-  //             type: values.type,
-  //             target: values.target,
-  //             message: values.message,
-  //             status: scheduled ? "scheduled" : "pending",
-  //             createdAt: new Date(),
-  //             sentAt: sendDate,
-  //             estimatedRecipients: userCount,
-  //             ...(values.bookId && { bookId: values.bookId }),
-  //           };
-
-  //           console.log("Notification data:", notificationData);
-
-  //           await addDoc(collection(db, "notifications"), notificationData);
-  //           message.success(
-  //             `Notification ${
-  //               scheduled ? "scheduled" : "being sent"
-  //             } to ${userCount} users`
-  //           );
-  //           await fetchData();
-  //           form.resetFields();
-  //           setScheduled(false);
-  //           setUserCount(0);
-  //         } catch (error) {
-  //           console.error("Submission error:", error);
-  //           message.error(
-  //             `Failed to ${scheduled ? "schedule" : "send"} notification`
-  //           );
-  //           throw error; // Re-throw to prevent modal from closing
-  //         } finally {
-  //           setSending(false);
-  //         }
-  //       },
-  //       onCancel: () => {
-  //         console.log("User canceled submission");
-  //       },
-  //     });
-
-  //     console.log("Modal created:", modal);
-  //   } catch (error) {
-  //     console.error("Modal creation error:", error);
-  //   }
-  // };
 
   // Initial data fetch
   useEffect(() => {
@@ -273,13 +213,13 @@ export const Notifications = () => {
       title: "Date",
       dataIndex: "sentAt",
       key: "date",
-      render: (date) => dayjs(date).format("MMM D, YYYY h:mm A"),
+      render: (date) => dayjs(date).format("MMM D,YYYY h:mm A"),
       sorter: (a, b) => a.sentAt - b.sentAt,
       width: 150,
     },
     {
       title: "Recipients",
-      dataIndex: "estimatedRecipients",
+      dataIndex: "estimatedRecipients", // This column now shows your Firestore estimate
       key: "recipients",
       render: (count) => count?.toLocaleString() || "N/A",
       width: 100,
