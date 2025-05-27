@@ -27,6 +27,8 @@ import {
   fetchTotalBooks,
 } from "../utils/APIs";
 import { Loader } from "../components/Loader";
+import { useNavigate } from "react-router-dom";
+import { ReportModal } from "../components/ReportModal";
 
 const { RangePicker } = DatePicker;
 
@@ -37,6 +39,9 @@ export const Dashboard = () => {
     dayjs().subtract(7, "day"),
     dayjs(),
   ]);
+
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const navigate = useNavigate();
 
   // Categories query
   const { data: categories } = useQuery({
@@ -338,26 +343,23 @@ export const Dashboard = () => {
       {/* Quick Links */}
       <div className="flex flex-wrap gap-3 mb-6">
         <Button
-          type="primary"
-          icon={<UploadOutlined />}
-          className="!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark"
-        >
-          Upload Book
-        </Button>
-        <Button
+          onClick={() => navigate("/book-management")}
           icon={<FileTextOutlined />}
-          className="!text-primary !border-primary hover:!bg-primary-light hover:!text-primary-dark"
+          className="!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark !text-white"
         >
           View Books
         </Button>
+
         <Button
           icon={<NotificationOutlined />}
+          onClick={() => navigate("/notifications")}
           className="!text-primary !border-primary hover:!bg-primary-light hover:!text-primary-dark"
         >
           Send Notification
         </Button>
         <Button
           icon={<BarChartOutlined />}
+          onClick={() => setReportModalVisible(true)}
           className="!text-primary !border-primary hover:!bg-primary-light hover:!text-primary-dark"
         >
           Generate Report
@@ -415,6 +417,11 @@ export const Dashboard = () => {
           scroll={{ x: true }}
         />
       </Card>
+
+      <ReportModal
+        visible={reportModalVisible}
+        onCancel={() => setReportModalVisible(false)}
+      />
     </div>
   );
 };

@@ -37,8 +37,8 @@ const Sidebar = ({
       icon: NotificationOutlined,
     },
     { name: "Sales", href: "/sales", icon: SellOutlined },
-    { name: "Orders", href: "/orders", icon: ShoppingOutlined },
-    { name: "Settings", href: "/settings", icon: SettingOutlined },
+    // { name: "Orders", href: "/orders", icon: ShoppingOutlined },
+    // { name: "Settings", href: "/settings", icon: SettingOutlined },
   ];
 
   const selectedKeys = navigation
