@@ -1,11 +1,11 @@
 import {
-  collection,
-  query,
-  where,
-  getDocs,
-  getCountFromServer,
-  orderBy,
-  limit,
+    collection,
+    query,
+    where,
+    getDocs,
+    getCountFromServer,
+    orderBy,
+    limit,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 
@@ -83,9 +83,14 @@ export const fetchSalesByCategory = async (categories) => {
         const order = doc.data();
         order.items.forEach((item) => {
             item.categories?.forEach((category) => {
-                if (categorySales.hasOwnProperty(category)) {
-                    categorySales[category] += item.price * item.quantity;
-                }
+                // if (categorySales.hasOwnProperty(category)) {
+                //     categorySales[category] += item.price * item.quantity;
+                // }
+                const capitalizedCat =
+                    category.charAt(0).toUpperCase() + category.slice(1);
+                categorySales[capitalizedCat] =
+                    (categorySales[capitalizedCat] || 0) + item.price * item.quantity;
+
             });
         });
     });

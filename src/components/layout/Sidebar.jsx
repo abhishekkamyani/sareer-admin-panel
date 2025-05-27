@@ -10,6 +10,7 @@ import {
   LeftOutlined,
   RightOutlined,
 } from "@ant-design/icons";
+import { SellOutlined } from "@mui/icons-material";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -35,6 +36,7 @@ const Sidebar = ({
       href: "/notifications",
       icon: NotificationOutlined,
     },
+    { name: "Sales", href: "/sales", icon: SellOutlined },
     { name: "Orders", href: "/orders", icon: ShoppingOutlined },
     { name: "Settings", href: "/settings", icon: SettingOutlined },
   ];

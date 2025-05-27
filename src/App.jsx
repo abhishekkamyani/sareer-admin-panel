@@ -36,6 +36,7 @@ import { UserManagement } from "./pages/UserManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Notifications } from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
+import { Sales } from "./pages/Sales";
 
 function App() {
   return (
@@ -60,6 +61,7 @@ function App() {
             <Route path="book-management" element={<BookManagement />} />
             <Route path="user-management" element={<UserManagement />} />
             <Route path="notifications" element={<Notifications />} />
+            <Route path="sales" element={<Sales />} />
             <Route path="/404" element={<NotFound />} />
             {/* <Route path="settings" element={<Settings />} /> */}
             <Route path="*" element={<Navigate to="/404" replace />} />

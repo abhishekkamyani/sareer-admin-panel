@@ -105,23 +105,123 @@ export const Dashboard = () => {
 
   // Chart options
   const salesByCategoryOption = {
-    title: { text: "Sales by Category" },
-    tooltip: {},
-    legend: { data: ["Sales"] },
+    title: {
+      text: "Sales Distribution by Category",
+      left: "center",
+      textStyle: {
+        color: "#333",
+        fontSize: 18,
+        fontWeight: "bold",
+      },
+    },
+    tooltip: {
+      trigger: "axis",
+      axisPointer: {
+        type: "shadow",
+      },
+      formatter: "{b}: <b>₨{c}</b>",
+    },
+    legend: {
+      data: ["Sales Revenue"],
+      bottom: 0,
+      textStyle: {
+        fontSize: 12,
+      },
+    },
+    grid: {
+      left: "3%",
+      right: "4%",
+      bottom: "15%",
+      containLabel: true,
+    },
     xAxis: {
       type: "category",
       data: categorySales?.categories || [],
+      axisLabel: {
+        rotate: 30,
+        interval: 0,
+        textStyle: {
+          color: "#666",
+        },
+      },
+      axisLine: {
+        lineStyle: {
+          color: "#ddd",
+        },
+      },
+      axisTick: {
+        alignWithLabel: true,
+      },
     },
-    yAxis: {},
+    yAxis: {
+      type: "value",
+      name: "Revenue (PKR)",
+      nameTextStyle: {
+        padding: [0, 0, 0, 40],
+        color: "#636363",
+      },
+      axisLine: {
+        show: true,
+        lineStyle: {
+          color: "#ddd",
+        },
+      },
+      splitLine: {
+        lineStyle: {
+          type: "dashed",
+          color: "#eee",
+        },
+      },
+      axisLabel: {
+        formatter: "₨{value}",
+        color: "#666",
+      },
+    },
     series: [
       {
-        name: "Sales",
+        name: "Sales Revenue",
         type: "bar",
+        barWidth: "60%",
         data: categorySales?.sales || [],
+        itemStyle: {
+          color: function (params) {
+            // Color palette
+            const colorList = [
+              "#5470C6",
+              "#91CC75",
+              "#FAC858",
+              "#EE6666",
+              "#73C0DE",
+              "#3BA272",
+              "#FC8452",
+              "#9A60B4",
+              "#EA7CCC",
+            ];
+            return colorList[params.dataIndex % colorList.length];
+          },
+          borderRadius: [4, 4, 0, 0],
+          shadowColor: "rgba(0, 0, 0, 0.1)",
+          shadowBlur: 6,
+          shadowOffsetY: 3,
+        },
+        emphasis: {
+          itemStyle: {
+            shadowColor: "rgba(0, 0, 0, 0.3)",
+            shadowBlur: 10,
+            shadowOffsetY: 5,
+          },
+        },
+        label: {
+          show: true,
+          position: "top",
+          formatter: "₨{c}",
+          color: "#333",
+        },
       },
     ],
+    animationDuration: 1500,
+    animationEasing: "elasticOut",
   };
-
   const readingAnalyticsOption = {
     title: { text: "Reading Activity (Last 7 Days)" },
     tooltip: { trigger: "axis" },
