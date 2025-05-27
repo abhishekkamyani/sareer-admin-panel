@@ -29,8 +29,8 @@ export const fetchNewReleases = async () => {
 
 export const fetchSalesData = async () => {
     const ordersCol = collection(db, "orders");
-    const q = query(ordersCol, where("paymentStatus", "==", "completed"));
-    const snapshot = await getDocs(q);
+    // const q = query(ordersCol, where("paymentStatus", "==", "completed"));
+    const snapshot = await getDocs(ordersCol);
 
     let totalPKR = 0;
     let totalUSD = 0;

@@ -21,7 +21,7 @@ const Layout = ({ children }) => {
       {/* </div> */}
 
       {/* Main content area */}
-      <div className="flex-1 ml-8 flex flex-col overflow-hidden">
+      <div className="flex-1 lg:ml-8 flex flex-col overflow-hidden">
         {/* Header */}
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         

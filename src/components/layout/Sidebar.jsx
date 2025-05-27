@@ -31,12 +31,12 @@ const Sidebar = ({
     { name: "Dashboard", href: "/", icon: HomeOutlined },
     { name: "Book Management", href: "/book-management", icon: BookOutlined },
     { name: "Users", href: "/user-management", icon: UserOutlined },
+    { name: "Sales", href: "/sales", icon: SellOutlined },
     {
       name: "Notifications",
       href: "/notifications",
       icon: NotificationOutlined,
     },
-    { name: "Sales", href: "/sales", icon: SellOutlined },
     // { name: "Orders", href: "/orders", icon: ShoppingOutlined },
     // { name: "Settings", href: "/settings", icon: SettingOutlined },
   ];
