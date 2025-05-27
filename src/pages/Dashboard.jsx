@@ -1,16 +1,5 @@
-import { useEffect, useState } from "react";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  getCountFromServer,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-import { db } from "../utils/firebase";
-import ReactECharts from "echarts-for-react";
-import { Card, Button, DatePicker, Table } from "antd";
+import { useQuery } from "@tanstack/react-query";
+import { Card, Button, DatePicker, Table, Spin } from "antd";
 import {
   BookOutlined,
   DollarOutlined,
@@ -21,193 +10,121 @@ import {
   FileTextOutlined,
   NotificationOutlined,
   BarChartOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { useQuery } from "@tanstack/react-query";
+import ReactECharts from "echarts-for-react";
+
+import { useState } from "react";
 import { getCategories } from "../utils/firebaseApis";
+import {
+  fetchActiveUsers,
+  fetchNewReleases,
+  fetchReadingAnalytics,
+  fetchRecentActivities,
+  fetchSalesByCategory,
+  fetchSalesData,
+  fetchTotalBooks,
+} from "../utils/APIs";
+import { Loader } from "../components/Loader";
 
 const { RangePicker } = DatePicker;
 
+// Firebase query functions
+
 export const Dashboard = () => {
-  const [stats, setStats] = useState({
-    totalBooks: 0,
-    totalSalesPKR: 0,
-    totalSalesUSD: 0,
-    newReleases: 0,
-    activeUsers: 0,
-    totalCopiesSold: 0,
-  });
-  const [activities, setActivities] = useState([]);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(7, "day"),
     dayjs(),
   ]);
 
+  // Categories query
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: getCategories,
+    refetchOnWindowFocus: false,
   });
 
-  const [loading, setLoading] = useState(false);
+  // Dashboard stats queries
+  const { data: totalBooks, isLoading: isTotalBooksLoading } = useQuery({
+    queryKey: ["totalBooks"],
+    queryFn: fetchTotalBooks,
+    refetchOnWindowFocus: false,
+  });
 
-  const [salesByCategoryOption, setSalesByCategoryOption] = useState({
-    title: {
-      text: "Sales by Category",
-    },
+  const { data: newReleases, isLoading: isNewReleaseLoading } = useQuery({
+    queryKey: ["newReleases"],
+    queryFn: fetchNewReleases,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: salesData, isLoading: isSalesDataLoading } = useQuery({
+    queryKey: ["salesData"],
+    queryFn: fetchSalesData,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: activeUsers, isLoading: isActiveUsersLoading } = useQuery({
+    queryKey: ["activeUsers"],
+    queryFn: fetchActiveUsers,
+    refetchOnWindowFocus: false,
+  });
+
+  const { data: activities, isLoading: isActivitiesLoading } = useQuery({
+    queryKey: ["recentActivities"],
+    queryFn: fetchRecentActivities,
+    refetchOnWindowFocus: false,
+  });
+
+  // Category sales query (depends on categories)
+  const { data: categorySales, isLoading: isCategorySalesLoading } = useQuery({
+    queryKey: ["categorySales", categories],
+    queryFn: () => fetchSalesByCategory(categories || []),
+    refetchOnWindowFocus: false,
+
+    enabled: !!categories,
+  });
+
+  // Reading analytics query
+  const { data: readingAnalytics, isLoading: isReadingAnalyticsLoading } =
+    useQuery({
+      queryKey: ["readingAnalytics"],
+      queryFn: fetchReadingAnalytics,
+      refetchOnWindowFocus: false,
+    });
+
+  // Combine stats
+  const stats = {
+    totalBooks,
+    totalSalesPKR: salesData?.totalPKR || 0,
+    totalSalesUSD: salesData?.totalUSD || 0,
+    newReleases,
+    activeUsers,
+    totalCopiesSold: salesData?.totalCopies || 0,
+  };
+
+  // Chart options
+  const salesByCategoryOption = {
+    title: { text: "Sales by Category" },
     tooltip: {},
-    legend: {
-      data: ["Sales"],
-    },
+    legend: { data: ["Sales"] },
     xAxis: {
       type: "category",
-      data: categories || [],
+      data: categorySales?.categories || [],
     },
     yAxis: {},
     series: [
       {
         name: "Sales",
         type: "bar",
-        data: [0, 0, 0, 0], // Initialize with zeros
+        data: categorySales?.sales || [],
       },
     ],
-  });
-
-  // Fetch dashboard statistics
-  const fetchStats = async () => {
-    setLoading(true);
-    try {
-      // Total Books
-      const booksCol = collection(db, "books");
-      const booksSnapshot = await getCountFromServer(booksCol);
-
-      // New Releases (last 30 days)
-      const newReleasesQuery = query(
-        booksCol,
-        where("releaseDate", ">=", dayjs().subtract(30, "day").toDate())
-      );
-      const newReleasesSnapshot = await getCountFromServer(newReleasesQuery);
-
-      // Total Sales (PKR and USD)
-      const ordersCol = collection(db, "orders");
-
-      const completedOrdersQuery = query(
-        ordersCol,
-        where("paymentStatus", "==", "completed")
-      );
-      const ordersSnapshot = await getDocs(completedOrdersQuery);
-
-      let totalPKR = 0;
-      let totalUSD = 0;
-      let totalCopies = 0;
-
-      ordersSnapshot.forEach((doc) => {
-        const order = doc.data();
-        // if (order.currency === "PKR") {
-        totalPKR += order.total;
-        // } else if (order.currency === "USD") {
-        // totalUSD += order.total;
-        // }
-        totalCopies += order.items.reduce(
-          (sum, item) => sum + item.quantity,
-          0
-        );
-      });
-
-      // Active Users (last 24 hours)
-      const usersCol = collection(db, "users");
-      const activeUsersQuery = query(
-        usersCol,
-        where("lastLogin", ">=", dayjs().subtract(1, "day").toDate())
-      );
-      const activeUsersSnapshot = await getCountFromServer(activeUsersQuery);
-
-      setStats({
-        totalBooks: booksSnapshot.data().count,
-        newReleases: newReleasesSnapshot.data().count,
-        totalSalesPKR: totalPKR,
-        totalSalesUSD: totalUSD,
-        activeUsers: activeUsersSnapshot.data().count,
-        totalCopiesSold: totalCopies,
-      });
-
-      // Fetch recent activities (from orders)
-      const activitiesQuery = query(
-        ordersCol,
-        orderBy("orderDate", "desc"),
-        limit(5)
-      );
-      const activitiesSnapshot = await getDocs(activitiesQuery);
-
-      setActivities(
-        activitiesSnapshot.docs.map((doc) => {
-          const order = doc.data();
-          return {
-            id: doc.id,
-            bookName: order.items[0]?.title || "Multiple Books",
-            action: "Purchase",
-            date: order.orderDate.toDate().toLocaleString(),
-            user: order.username,
-          };
-        })
-      );
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
   };
 
-  // Call these in useEffect
-  useEffect(() => {
-    fetchStats();
-    fetchSalesByCategory();
-    fetchReadingAnalytics();
-  }, [dateRange, categories]);
-
-  // Fetch sales by category data
-  const fetchSalesByCategory = async () => {
-    const ordersCol = collection(db, "orders");
-    const snapshot = await getDocs(ordersCol);
-
-    const categorySales = categories.reduce((acc, category) => {
-      acc[category] = 0;
-      return acc;
-    }, {});
-
-    snapshot.forEach((doc) => {
-      const order = doc.data();
-      order.items.forEach((item) => {
-        item.categories?.forEach((category) => {
-          if (categorySales.hasOwnProperty(category)) {
-            categorySales[category] += item.price * item.quantity;
-          }
-        });
-      });
-    });
-
-    setSalesByCategoryOption((prev) => ({
-      ...prev,
-      xAxis: {
-        ...prev.xAxis,
-        data: Object.keys(categorySales),
-      },
-      series: [
-        {
-          ...prev.series[0],
-          data: Object.values(categorySales),
-        },
-      ],
-    }));
-  };
-
-  // Reading Analytics Chart (pages read)
   const readingAnalyticsOption = {
-    title: {
-      text: "Reading Activity (Last 7 Days)",
-    },
-    tooltip: {
-      trigger: "axis",
-    },
+    title: { text: "Reading Activity (Last 7 Days)" },
+    tooltip: { trigger: "axis" },
     xAxis: {
       type: "category",
       data: Array.from({ length: 7 }, (_, i) =>
@@ -216,66 +133,39 @@ export const Dashboard = () => {
           .format("ddd, MMM D")
       ),
     },
-    yAxis: {
-      type: "value",
-      name: "Pages Read",
-    },
+    yAxis: { type: "value", name: "Pages Read" },
     series: [
       {
         name: "Pages Read",
         type: "line",
-        data: Array(7).fill(0), // Initialize with zeros
+        data: readingAnalytics || Array(7).fill(0),
         smooth: true,
       },
     ],
   };
 
-  // Fetch reading analytics
-  const fetchReadingAnalytics = async () => {
-    const usersCol = collection(db, "users");
-    const snapshot = await getDocs(usersCol);
-
-    const dailyPages = Array(7).fill(0);
-
-    snapshot.forEach((doc) => {
-      const user = doc.data();
-      user.readingProgress?.forEach((book) => {
-        const readDate = book.lastReadAt?.toDate();
-        if (readDate) {
-          const daysAgo = dayjs().diff(readDate, "day");
-          if (daysAgo >= 0 && daysAgo < 7) {
-            dailyPages[6 - daysAgo] += book.totalPagesRead || 0;
-          }
-        }
-      });
-    });
-
-    readingAnalyticsOption.series[0].data = dailyPages;
-  };
-
   // Activities Table Columns
   const activityColumns = [
-    {
-      title: "Book Name",
-      dataIndex: "bookName",
-      key: "bookName",
-    },
-    {
-      title: "Action",
-      dataIndex: "action",
-      key: "action",
-    },
-    {
-      title: "Date",
-      dataIndex: "date",
-      key: "date",
-    },
-    {
-      title: "User",
-      dataIndex: "user",
-      key: "user",
-    },
+    { title: "Book Name", dataIndex: "bookName", key: "bookName" },
+    { title: "Action", dataIndex: "action", key: "action" },
+    { title: "Date", dataIndex: "date", key: "date" },
+    { title: "User", dataIndex: "user", key: "user" },
   ];
+
+  // Check if any query is loading
+  const isLoading = [
+    isTotalBooksLoading,
+    isNewReleaseLoading,
+    isSalesDataLoading,
+    isActiveUsersLoading,
+    isActivitiesLoading,
+    isCategorySalesLoading,
+    isReadingAnalyticsLoading,
+  ].some((query) => query === true);
+
+  if (isLoading) {
+    return <Loader />;
+  }
 
   return (
     <div className="p-4 sm:p-6">
@@ -283,7 +173,7 @@ export const Dashboard = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-        <Card loading={loading} className="hover:shadow-md transition-shadow">
+        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <BookOutlined className="!text-primary-light text-2xl mr-3" />
             <div>
@@ -295,7 +185,7 @@ export const Dashboard = () => {
           </div>
         </Card>
 
-        <Card loading={loading} className="hover:shadow-md transition-shadow">
+        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <DollarOutlined className="!text-secondary text-2xl mr-3" />
             <div>
@@ -308,7 +198,7 @@ export const Dashboard = () => {
           </div>
         </Card>
 
-        <Card loading={loading} className="hover:shadow-md transition-shadow">
+        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <StarOutlined className="!text-secondary text-2xl mr-3" />
             <div>
@@ -320,7 +210,7 @@ export const Dashboard = () => {
           </div>
         </Card>
 
-        <Card loading={loading} className="hover:shadow-md transition-shadow">
+        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <UserOutlined className="!text-primary-light text-2xl mr-3" />
             <div>
@@ -332,7 +222,7 @@ export const Dashboard = () => {
           </div>
         </Card>
 
-        <Card loading={loading} className="hover:shadow-md transition-shadow">
+        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
           <div className="flex items-center">
             <ShoppingCartOutlined className="!text-secondary text-2xl mr-3" />
             <div>
@@ -419,7 +309,7 @@ export const Dashboard = () => {
         <Table
           columns={activityColumns}
           dataSource={activities}
-          loading={loading}
+          loading={isLoading}
           pagination={false}
           rowKey="id"
           scroll={{ x: true }}

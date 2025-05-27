@@ -23,6 +23,7 @@ import { CategoryModal } from "../components/books/CategoryModal";
 import { fetchBooks, uploadFileToFirebase } from "../utils";
 import { getCategories } from "../utils/firebaseApis";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader } from "../components/Loader";
 
 export const BookManagement = () => {
   // const [books, setBooks] = useState([]);
@@ -69,7 +70,7 @@ export const BookManagement = () => {
   console.log("books", books);
 
   if (booksLoading) {
-    return <div>Loading...</div>;
+    return <Loader />;
   }
 
   const upsertBookToFirestore = async (formData) => {
