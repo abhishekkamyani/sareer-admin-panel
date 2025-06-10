@@ -28,6 +28,7 @@
     "react-perfect-scrollbar": "^1.5.8",
     "react-router-dom": "^7.6.0",
     "react-select": "^5.10.1",
+    "react-toastify": "^11.0.5",
     "tailwindcss": "^4.1.7",
     "xlsx": "^0.18.5"
   },

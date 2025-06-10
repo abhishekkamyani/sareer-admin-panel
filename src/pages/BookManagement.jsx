@@ -1,8 +1,10 @@
+// BookManagement.jsx
 import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
 import { db, seedOrders, seedUsers } from "../utils/firebase";
+import { toast } from "react-toastify"; // Import toast
 
 import {
   addDoc,
@@ -17,6 +19,8 @@ import {
   getDocs,
   writeBatch,
   Timestamp,
+  query, // Import query
+  where, // Import where
 } from "firebase/firestore";
 
 import { CategoryModal } from "../components/books/CategoryModal";
@@ -87,6 +91,9 @@ export const BookManagement = () => {
           coverUrl = result.url;
         } catch (error) {
           console.error("Image upload failed:", error);
+          toast.error("Failed to upload cover image.", {
+            style: { backgroundColor: "var(--color-error)", color: "white" },
+          });
           throw new Error("Failed to upload cover image");
         }
       }
@@ -198,6 +205,12 @@ export const BookManagement = () => {
           console.warn(
             `Category "${categoryName}" doesn't exist in categories collection`
           );
+          toast.warn(`Category "${categoryName}" does not exist.`, {
+            style: {
+              backgroundColor: "var(--color-warning)",
+              color: "white",
+            },
+          });
           // Option 1: Skip (current behavior)
           // Option 2: Create new category automatically:
           // const newCatRef = doc(collection(db, "categories"));
@@ -223,6 +236,12 @@ export const BookManagement = () => {
           });
         } else {
           console.warn(`Category "${categoryName}" not found during removal`);
+          toast.warn(`Category "${categoryName}" not found during removal.`, {
+            style: {
+              backgroundColor: "var(--color-warning)",
+              color: "white",
+            },
+          });
         }
       }
 
@@ -230,9 +249,21 @@ export const BookManagement = () => {
 
       // fetchBooks();
       queryClient.invalidateQueries(["books"]);
+      toast.success(`Book ${bookId ? "updated" : "added"} successfully!`, {
+        style: {
+          backgroundColor: "var(--color-success)",
+          color: "white",
+        },
+      });
       return { success: true, bookId: newBookId };
     } catch (error) {
       console.error("Error in upsertBookToFirestore:", error);
+      toast.error(
+        `Failed to ${formData.id ? "update" : "add"} book: ${error.message}`,
+        {
+          style: { backgroundColor: "var(--color-error)", color: "white" },
+        }
+      );
       throw error;
     } finally {
       setIsLoading(false);
@@ -246,7 +277,7 @@ export const BookManagement = () => {
         await upsertBookToFirestore(data);
       }
     } catch (error) {
-      // Handle error
+      // Error handling is already done in upsertBookToFirestore
       setIsLoading(false);
       console.error("Error submitting form: ", error);
     }
@@ -267,6 +298,9 @@ export const BookManagement = () => {
       const bookSnap = await getDoc(bookRef);
 
       if (!bookSnap.exists()) {
+        toast.error("Book not found.", {
+          style: { backgroundColor: "var(--color-error)", color: "white" },
+        });
         throw new Error("Book not found");
       }
 
@@ -281,11 +315,12 @@ export const BookManagement = () => {
       // 4. Remove book reference from all its categories
       if (bookCategories.length > 0) {
         // Get all categories that might contain this book
-        const categoriesQuery = query(
+        const categoriesQueryRef = query(
+          // Renamed to avoid conflict
           collection(db, "categories"),
           where("books", "array-contains", id)
         );
-        const categoriesSnapshot = await getDocs(categoriesQuery);
+        const categoriesSnapshot = await getDocs(categoriesQueryRef); // Used renamed query
 
         categoriesSnapshot.forEach((doc) => {
           batch.update(doc.ref, {
@@ -300,13 +335,18 @@ export const BookManagement = () => {
 
       // 6. Refresh data
       // fetchBooks();
-      queryClient.invalidateQueries(["categories"]);
+      queryClient.invalidateQueries(["books"]); // Invalidate books query
+      queryClient.invalidateQueries(["categories"]); // Invalidate categories query as well
 
       // Optional: Show success message
-      toast.success("Book deleted successfully");
+      toast.success("Book deleted successfully!", {
+        style: { backgroundColor: "var(--color-success)", color: "white" },
+      });
     } catch (error) {
       console.error("Error deleting book:", error);
-      toast.error(`Failed to delete book: ${error.message}`);
+      toast.error(`Failed to delete book: ${error.message}`, {
+        style: { backgroundColor: "var(--color-error)", color: "white" },
+      });
       throw error;
     } finally {
       setIsLoading(false);
