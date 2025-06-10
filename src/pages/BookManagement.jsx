@@ -252,7 +252,7 @@ export const BookManagement = () => {
       toast.success(`Book ${bookId ? "updated" : "added"} successfully!`, {
         style: {
           backgroundColor: "var(--color-success)",
-          color: "white",
+          color: "white", 
         },
       });
       return { success: true, bookId: newBookId };
