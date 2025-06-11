@@ -43,8 +43,6 @@ export const BookManagement = () => {
     queryFn: getCategories,
   });
 
-  console.log("categoriesQuery", categoriesQuery.data);
-
   // const fetchBooks = () => {
   //   const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
   //     console.log("snapshot", snapshot.docs);
@@ -105,8 +103,6 @@ export const BookManagement = () => {
           oldCategories = bookDoc.data().categories || [];
         }
       }
-
-      console.log("-------oldCategories-------", oldCategories);
 
       // 3. Prepare Book Data
       const bookData = {
