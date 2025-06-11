@@ -43,7 +43,7 @@ export const BookManagement = () => {
     queryFn: getCategories,
   });
 
-  console.log("categoriesQuery", categoriesQuery.isLoading);
+  console.log("categoriesQuery", categoriesQuery.data);
 
   // const fetchBooks = () => {
   //   const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
@@ -406,7 +406,7 @@ export const BookManagement = () => {
         <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-grey-200">
           <BookTable
             books={books}
-            categories={categoriesQuery.data}
+            categories={categoriesQuery.data?.map((cat) => cat.name)}
             onEdit={handleEdit}
             onDelete={handleDelete}
             isLoading={isLoading}

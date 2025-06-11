@@ -4,7 +4,10 @@ import { db } from "./firebase";
 export const getCategories = async () => {
   try {
     const querySnapshot = await getDocs(collection(db, "categories"));
-    const categories = querySnapshot.docs.map((doc) => doc.data().name);
+    const categories = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data()
+    }));
     return categories;
   } catch (err) {
     console.error("Failed to fetch categories", err);
