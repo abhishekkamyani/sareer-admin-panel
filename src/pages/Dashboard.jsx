@@ -83,8 +83,9 @@ export const Dashboard = () => {
 
   // Category sales query (depends on categories)
   const { data: categorySales, isLoading: isCategorySalesLoading } = useQuery({
-    queryKey: ["categorySales", categories],
-    queryFn: () => fetchSalesByCategory(categories || []),
+    queryKey: ["categorySales", categories?.map((cat) => cat.id).join(",")],
+    queryFn: () =>
+      fetchSalesByCategory(categories?.map((cat) => cat.name) || []),
     refetchOnWindowFocus: false,
 
     enabled: !!categories,

@@ -43,8 +43,6 @@ export const BookManagement = () => {
     queryFn: getCategories,
   });
 
-  console.log("categoriesQuery", categoriesQuery.isLoading);
-
   // const fetchBooks = () => {
   //   const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
   //     console.log("snapshot", snapshot.docs);
@@ -105,8 +103,6 @@ export const BookManagement = () => {
           oldCategories = bookDoc.data().categories || [];
         }
       }
-
-      console.log("-------oldCategories-------", oldCategories);
 
       // 3. Prepare Book Data
       const bookData = {
@@ -406,7 +402,7 @@ export const BookManagement = () => {
         <div className="bg-white shadow overflow-hidden sm:rounded-lg border border-grey-200">
           <BookTable
             books={books}
-            categories={categoriesQuery.data}
+            categories={categoriesQuery.data?.map((cat) => cat.name)}
             onEdit={handleEdit}
             onDelete={handleDelete}
             isLoading={isLoading}

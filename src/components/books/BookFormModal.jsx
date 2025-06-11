@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Import useRef
 import { useForm, Controller } from "react-hook-form";
 import { CloudArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import Select from "react-select";
@@ -8,14 +8,47 @@ import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
 
+const availableTags = [
+  "Bestseller",
+  "New",
+  "Limited Edition",
+  "Award Winning",
+  "Staff Pick",
+];
+
 export const BookFormModal = ({
   isOpen,
   onClose,
   onSubmit,
-  initialData,
-  categories,
+  initialData, // This now contains all categories with 'id' and 'type'
+  categories, // Renamed to allCategories for clarity, as it contains both types
   isLoading,
 }) => {
+  // Separate categories into standard and featured upon receiving the prop
+  const allStandardCategories =
+    categories?.filter((cat) => cat.type === "standard") || [];
+  const allFeaturedCategories =
+    categories?.filter((cat) => cat.type === "featured") || [];
+
+  // Helper to process initial categories into standard and featured names
+  const getInitialCategoryNames = (data) => {
+    if (!data || !data.categories || !Array.isArray(data.categories)) {
+      return { standardCategoryNames: [], featuredCategoryNames: [] };
+    }
+
+    const initialBookCategoryNames = data.categories;
+    const initialStandardCategoryNames = initialBookCategoryNames.filter(
+      (name) => allStandardCategories.some((cat) => cat.name === name)
+    );
+    const initialFeaturedCategoryNames = initialBookCategoryNames.filter(
+      (name) => allFeaturedCategories.some((cat) => cat.name === name)
+    );
+    return { initialStandardCategoryNames, initialFeaturedCategoryNames };
+  };
+
+  const { initialStandardCategoryNames, initialFeaturedCategoryNames } =
+    getInitialCategoryNames(initialData);
+
   const {
     register,
     handleSubmit,
@@ -23,71 +56,143 @@ export const BookFormModal = ({
     setValue,
     control,
     formState: { errors },
+    reset, // Import reset function from useForm
   } = useForm({
-    defaultValues: initialData || {
-      name: "",
-      writer: "",
-      description: "",
-      categories: [],
-      language: "English",
-      releaseDate: "",
-      pricePkr: 0,
-      priceUsd: 0,
-      discountType: "percentage",
-      discountValue: 0,
-      tags: [],
-      tag: "",
-      keywords: [],
-      coverImage: null,
-      contentRestriction: 5,
-      content: [],
-      tableOfContents: [],
-    },
+    // Conditionally set defaultValues based on initialData presence
+    defaultValues: initialData
+      ? {
+          id: initialData.id,
+          name: initialData.name,
+          writer: initialData.writer,
+          description: initialData.description,
+          standardCategoryNames: initialStandardCategoryNames,
+          featuredCategoryNames: initialFeaturedCategoryNames,
+          language: initialData.language || "English",
+          releaseDate: dayjs(
+            initialData.releaseDate?.toDate
+              ? initialData.releaseDate.toDate()
+              : initialData.releaseDate
+          ).format("YYYY-MM-DD"),
+          pricePkr: Number(initialData.prices?.pkr || 0),
+          priceUsd: Number(initialData.prices?.usd || 0),
+          discountType: initialData.discount?.type || "percentage",
+          discountValue: Number(initialData.discount?.value || 0),
+          contentRestriction: Number(initialData.contentRestriction || 5),
+          tags: initialData.tags || [],
+          tag: initialData.tag || "",
+          keywords: initialData.keywords || [],
+          coverUrl: initialData?.coverUrl || null,
+          // coverImage is handled by state/preview, not directly in form data for initial load
+          content: initialData.content || [],
+          tableOfContents: initialData.tableOfContents || [], // This is initialized from prop too
+          status: initialData.status || "published",
+        }
+      : {
+          name: "",
+          writer: "",
+          description: "",
+          standardCategoryNames: [],
+          featuredCategoryNames: [],
+          language: "English",
+          releaseDate: "",
+          pricePkr: 0,
+          priceUsd: 0,
+          discountType: "percentage",
+          discountValue: 0,
+          tags: [],
+          tag: "",
+          keywords: [],
+          coverImage: null,
+          contentRestriction: 5,
+          content: [],
+          tableOfContents: [],
+          status: "published",
+        },
   });
 
-  const [coverPreview, setCoverPreview] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(
+    initialData?.coverUrl || null
+  ); // Initialize with initialData
   const [fileUploadError, setFileUploadError] = useState(null);
   const [tableOfContents, setTableOfContents] = useState(
     initialData?.tableOfContents || []
-  );
+  ); // Initialize with initialData
   const discountType = watch("discountType");
   const pricePkr = watch("pricePkr");
   const discountValue = watch("discountValue");
-  const [selectedTagOption, setSelectedTagOption] = useState("custom");
+  const [selectedTagOption, setSelectedTagOption] = useState(
+    initialData?.tag && availableTags.includes(initialData.tag)
+      ? initialData.tag
+      : "custom"
+  ); // Initialize with initialData
 
-  useEffect(() => {
-    if (initialData) {
-      setValue("name", initialData.name);
-      setValue("writer", initialData.writer);
-      setValue("content", initialData.content);
-      setValue("description", initialData.description);
-      // setValue("categories", initialData.categories);
-      setValue("language", initialData.language || "English");
-      setValue(
-        "releaseDate",
-        dayjs(new Date(initialData.releaseDate)).format("YYYY-MM-DD")
-      );
-      setValue("pricePkr", Number(initialData.prices?.pkr || 0));
-      setValue("priceUsd", Number(initialData.prices?.usd || 0));
-      setValue("discountType", initialData.discount?.type || "percentage");
-      setValue("discountValue", Number(initialData.discount?.value || 0));
-      setValue(
-        "contentRestriction",
-        Number(initialData.contentRestriction || 5)
-      );
-      setValue("tags", initialData.tags || []);
-      setValue("tag", initialData.tag || "");
-      setValue("keywords", initialData.keywords || []);
-      setCoverPreview(initialData.coverUrl || null);
-      setTableOfContents(initialData.tableOfContents || []);
-    }
-  }, [initialData, setValue]);
+  // Ref to track the ID of the last book whose data was loaded into the form
+  const lastLoadedBookIdRef = useRef(initialData?.id);
 
+  // This useEffect will reset the form only when initialData.id changes (i.e., a different book is being edited)
+  // or when the modal is opened for the first time for a new book (initialData becomes null initially).
   useEffect(() => {
-    if (categories.length > 0) {
-      setValue("categories", initialData?.categories || []);
+    // Check if initialData has changed (e.g., editing a different book)
+    // Or if we are switching from editing to adding a new book (initialData becomes null)
+    const isDifferentBook = initialData?.id !== lastLoadedBookIdRef.current;
+    const isOpeningForNewBook =
+      isOpen && !initialData && lastLoadedBookIdRef.current !== undefined; // lastLoadedBookIdRef.current !== undefined prevents initial run on mount
+
+    if (isDifferentBook || isOpeningForNewBook) {
+      const { initialStandardCategoryNames, initialFeaturedCategoryNames } =
+        getInitialCategoryNames(initialData);
+
+      reset({
+        // Use reset to set all form values and reset form state
+        id: initialData?.id, // Ensure ID is passed for editing context
+        name: initialData?.name || "",
+        writer: initialData?.writer || "",
+        content: initialData?.content || [],
+        description: initialData?.description || "",
+        standardCategoryNames: initialStandardCategoryNames,
+        featuredCategoryNames: initialFeaturedCategoryNames,
+        language: initialData?.language || "English",
+        releaseDate: initialData?.releaseDate
+          ? dayjs(
+              initialData.releaseDate.toDate
+                ? initialData.releaseDate.toDate()
+                : initialData.releaseDate
+            ).format("YYYY-MM-DD")
+          : "",
+        pricePkr: Number(initialData?.prices?.pkr || 0),
+        priceUsd: Number(initialData?.prices?.usd || 0),
+        discountType: initialData?.discount?.type || "percentage",
+        discountValue: Number(initialData?.discount?.value || 0),
+        contentRestriction: Number(initialData?.contentRestriction || 5),
+        tags: initialData?.tags || [],
+        tag: initialData?.tag || "",
+        keywords: initialData?.keywords || [],
+        status: initialData?.status || "published",
+        coverUrl: initialData?.coverUrl || null,
+      });
+
+      setCoverPreview(initialData?.coverUrl || null);
+      setTableOfContents(initialData?.tableOfContents || []);
+      setSelectedTagOption(
+        initialData?.tag && availableTags.includes(initialData.tag)
+          ? initialData.tag
+          : "custom"
+      );
+
+      // Update the ref to the current book's ID
+      lastLoadedBookIdRef.current = initialData?.id;
+    } else if (!isOpen && lastLoadedBookIdRef.current !== null) {
+      // When modal closes, and it was previously editing a book, reset ref to null
+      // This helps 'isOpeningForNewBook' trigger correctly next time if 'Add Book' is clicked.
+      lastLoadedBookIdRef.current = null;
     }
-  }, [categories]);
+  }, [
+    initialData,
+    isOpen,
+    reset,
+    allStandardCategories,
+    allFeaturedCategories,
+  ]); // Keep initialData as dependency for object identity check
 
   // Calculate discounted price
   useEffect(() => {
@@ -122,13 +227,6 @@ export const BookFormModal = ({
     required: "Content is required",
   });
   const languages = ["English", "Urdu"];
-  const availableTags = [
-    "Bestseller",
-    "New",
-    "Limited Edition",
-    "Award Winning",
-    "Staff Pick",
-  ];
 
   const keywords = watch("keywords") || [];
 
@@ -193,12 +291,23 @@ export const BookFormModal = ({
           >
             <form
               onSubmit={handleSubmit((data) => {
+                // Combine standard and featured categories into a single array for submission
+                const combinedCategories = [
+                  ...(data.standardCategoryNames || []),
+                  ...(data.featuredCategoryNames || []),
+                ];
+
                 const formData = {
                   ...data,
+                  categories: combinedCategories, // This is the combined array
                   tableOfContents: tableOfContents.filter(
                     (item) => item.title && item.anchor
                   ),
                 };
+                // Remove the split category names from the final submission if upsertBookToFirestore expects just 'categories'
+                delete formData.standardCategoryNames;
+                delete formData.featuredCategoryNames;
+
                 onSubmit(formData);
               })}
               className="space-y-4 h-full"
@@ -246,51 +355,105 @@ export const BookFormModal = ({
 
               {/* Second Row - Category, Language, Date */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Category */}
+                {/* Standard Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category*
+                    Standard Categories*
                   </label>
                   <Controller
-                    name="categories"
+                    name="standardCategoryNames"
                     control={control}
-                    rules={{ required: "Required" }}
+                    rules={{
+                      required: "At least one standard category is required.",
+                    }}
                     render={({ field }) => (
                       <Select
                         {...field}
                         isMulti
-                        options={categories.map((cat) => ({
-                          value: cat,
-                          label: cat,
+                        options={allStandardCategories.map((cat) => ({
+                          value: cat.name,
+                          label: cat.name,
                         }))}
                         value={
-                          field.value?.map((cat) => ({
-                            value: cat,
-                            label: cat,
+                          field.value?.map((name) => ({
+                            value: name,
+                            label: name,
                           })) || []
                         }
                         onChange={(selected) => {
                           const selectedValues = selected.map(
                             (item) => item.value
                           );
-                          field.onChange(selectedValues); // update form value
+                          field.onChange(selectedValues);
                         }}
                         className={`react-select-container ${
-                          errors.categories ? "react-select--error" : ""
+                          errors.standardCategoryNames
+                            ? "react-select--error"
+                            : ""
                         }`}
                         classNamePrefix="react-select"
                       />
                     )}
                   />
-
-                  {errors.categories && (
+                  {errors.standardCategoryNames && (
                     <p className="mt-1 text-sm text-error">
-                      {errors.categories.message}
+                      {errors.standardCategoryNames.message}
                     </p>
                   )}
                 </div>
 
-                {/* Language */}
+                {/* Featured Category */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Featured Categories (Max 3)
+                  </label>
+                  <Controller
+                    name="featuredCategoryNames"
+                    control={control}
+                    rules={{
+                      validate: (value) => {
+                        return (
+                          (value && value.length <= 3) ||
+                          "You can select a maximum of 3 featured categories."
+                        );
+                      },
+                    }}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        isMulti
+                        options={allFeaturedCategories.map((cat) => ({
+                          value: cat.name,
+                          label: cat.name,
+                        }))}
+                        value={
+                          field.value?.map((name) => ({
+                            value: name,
+                            label: name,
+                          })) || []
+                        }
+                        onChange={(selectedOptions) => {
+                          field.onChange(
+                            selectedOptions.map((opt) => opt.value)
+                          );
+                        }}
+                        className={`react-select-container ${
+                          errors.featuredCategoryNames
+                            ? "react-select--error"
+                            : ""
+                        }`}
+                        classNamePrefix="react-select"
+                      />
+                    )}
+                  />
+                  {errors.featuredCategoryNames && (
+                    <p className="mt-1 text-sm text-error">
+                      {errors.featuredCategoryNames.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Language (moved to column 3) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Language
@@ -306,8 +469,11 @@ export const BookFormModal = ({
                     ))}
                   </select>
                 </div>
+              </div>
 
-                {/* Release Date */}
+              {/* Third Row - Release Date, Pricing */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Release Date (moved from column 3 of previous row) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Release Date*
@@ -325,10 +491,6 @@ export const BookFormModal = ({
                     </p>
                   )}
                 </div>
-              </div>
-
-              {/* Third Row - Pricing */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Price PKR */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -386,7 +548,10 @@ export const BookFormModal = ({
                     </p>
                   )}
                 </div>
+              </div>
 
+              {/* Fourth Row - Discount, Content Restriction & Tags */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Discount */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -423,10 +588,7 @@ export const BookFormModal = ({
                     {watch("discountedPricePkr")?.toFixed(2) || "0.00"}
                   </p>
                 </div>
-              </div>
 
-              {/* Fourth Row - Content Restriction & Tags */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Preview Pages */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -462,12 +624,12 @@ export const BookFormModal = ({
                   </label>
                   <div className="flex flex-wrap gap-2">
                     <select
-                      className="w-full h-10 p-2 shadow-sm bg-secondaryLightest border border-slate-700 rounded-lg focus:border-primary text-black placeholder:italic"
+                      className="w-full h-10 p-2 shadow-sm bg-secondary-light border border-gray-300 rounded-lg focus:border-primary text-black placeholder:italic"
                       value={selectedTagOption}
                       onChange={(e) => {
                         const value = e.target.value;
                         setSelectedTagOption(e.target.value);
-                        setValue(value === "custom" ? "" : value);
+                        setValue("tag", value === "custom" ? "" : value); // Ensure 'tag' field is updated
                       }}
                     >
                       {availableTags.map((tag) => (
@@ -479,38 +641,31 @@ export const BookFormModal = ({
                         Custom
                       </option>
                     </select>
-                    {/* {availableTags.map((tag) => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => toggleTag(tag)}
-                        className={`flex items-center px-3 py-1 rounded-full text-xs ${
-                          selectedTags.includes(tag)
-                            ? "bg-indigo-100 text-indigo-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {tag}
-                        {selectedTags.includes(tag) && (
-                          <CheckIcon className="ml-1 h-3 w-3" />
-                        )}
-                      </button>
-                    ))} */}
                     {selectedTagOption === "custom" && (
                       <input
                         type="text"
-                        {...register("tag")}
+                        {...register("tag")} // Register 'tag' here
                         className={`w-full rounded-md border ${
-                          errors.keywords ? "border-red-500" : "border-gray-300"
+                          errors.tag ? "border-red-500" : "border-gray-300"
                         } p-2 focus:ring-primary focus:border-primary`}
                         placeholder="Write any custom tag"
                       />
                     )}
                   </div>
+                  {errors.tag && (
+                    <p className="mt-1 text-sm text-error">
+                      {errors.tag.message}
+                    </p>
+                  )}
                 </div>
+              </div>
 
+              {/* Fifth Row - Keywords */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Keywords */}
-                <div>
+                <div className="md:col-span-3">
+                  {" "}
+                  {/* Span all columns */}
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Keywords
                     <span className="ml-2 text-gray-500 font-normal">
@@ -526,7 +681,6 @@ export const BookFormModal = ({
                     } p-2 focus:ring-primary focus:border-primary`}
                     placeholder="e.g. science, fiction, AI"
                   />
-
                   {/* Keywords badges */}
                   <div className="flex flex-wrap gap-2 mt-2">
                     {keywords.map((keyword, index) => (
@@ -548,7 +702,7 @@ export const BookFormModal = ({
                 </div>
               </div>
 
-              {/* Fifth Row - Description */}
+              {/* Sixth Row - Description */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description*
@@ -567,7 +721,7 @@ export const BookFormModal = ({
                 )}
               </div>
 
-              {/* Sixth Row - Cover Image */}
+              {/* Seventh Row - Cover Image */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Book Cover*
@@ -631,27 +785,7 @@ export const BookFormModal = ({
                 )}
               </div>
 
-              {/* Seventh Row - Book Content */}
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Book Content (Text)*
-                  <span className="ml-2 text-gray-500 font-normal">
-                    Use ## Heading for chapters (will auto-generate TOC)
-                  </span>
-                </label>
-                <textarea
-                  rows={8}
-                  {...register("content", { required: "Required" })}
-                  className={`w-full rounded-md border ${
-                    errors.content ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-primary focus:border-primary`}
-                />
-                {errors.content && (
-                  <p className="mt-1 text-sm text-error">
-                    {errors.content.message}
-                  </p>
-                )}
-              </div> */}
+              {/* Eighth Row - Book Content (Text) */}
               {errors.content && (
                 <p className="mt-3 text-md text-end text-error">
                   {errors.content.message}
@@ -661,6 +795,24 @@ export const BookFormModal = ({
                 content={watch("content")}
                 setContent={(cb) => setValue("content", cb(watch("content")))}
               />
+
+              {/* Status and Featured toggle */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Book Status
+                  </label>
+                  <select
+                    {...register("status")}
+                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                  >
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+              </div>
 
               {/* Footer with Action Buttons */}
               <div className="flex justify-end gap-3 pt-4 border-t pb-5">
