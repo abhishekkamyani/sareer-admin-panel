@@ -7,6 +7,8 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css"; // Import Quill styles
 
 const availableTags = [
   "Bestseller",
@@ -15,6 +17,48 @@ const availableTags = [
   "Award Winning",
   "Staff Pick",
 ];
+
+const parseRichText = (content) => {
+  if (!content) return "";
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    Array.isArray(content.ops)
+  ) {
+    return content; // Already a valid Delta object
+  }
+  if (typeof content === "string") {
+    try {
+      const parsed = JSON.parse(content);
+      if (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        Array.isArray(parsed.ops)
+      ) {
+        return parsed; // It was a stringified Delta object
+      }
+    } catch (e) {
+      // Not a JSON string, so treat as plain text/HTML
+      return content;
+    }
+  }
+  return content; // Fallback
+};
+
+// --- QUILL TOOLBAR CONFIGURATIONS ---
+const minimalModules = {
+  toolbar: [["bold", "italic", "underline"]],
+};
+
+const fullModules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline", "strike", "blockquote"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["link", "image"],
+    ["clean"],
+  ],
+};
 
 export const BookFormModal = ({
   isOpen,
@@ -62,9 +106,9 @@ export const BookFormModal = ({
     defaultValues: initialData
       ? {
           id: initialData.id,
-          name: initialData.name,
-          writer: initialData.writer,
-          description: initialData.description,
+          name: parseRichText(initialData.name),
+          writer: parseRichText(initialData.writer),
+          description: parseRichText(initialData.description),
           standardCategoryNames: initialStandardCategoryNames,
           featuredCategoryNames: initialFeaturedCategoryNames,
           language: initialData.language || "English",
@@ -145,10 +189,10 @@ export const BookFormModal = ({
       reset({
         // Use reset to set all form values and reset form state
         id: initialData?.id, // Ensure ID is passed for editing context
-        name: initialData?.name || "",
-        writer: initialData?.writer || "",
+        name: initialData ? parseRichText(initialData.name) : "",
+        writer: initialData ? parseRichText(initialData.writer) : "",
+        description: initialData ? parseRichText(initialData.description) : "",
         content: initialData?.content || [],
-        description: initialData?.description || "",
         standardCategoryNames: initialStandardCategoryNames,
         featuredCategoryNames: initialFeaturedCategoryNames,
         language: initialData?.language || "English",
@@ -259,12 +303,51 @@ export const BookFormModal = ({
 
   if (!isOpen) return null;
 
-  let submitState = "";
-  if (isLoading) {
-    submitState = initialData ? "Updating..." : "Saving...";
-  } else {
-    submitState = initialData ? "Update Book" : "Add Book";
-  }
+  const submitState = isLoading
+    ? initialData
+      ? "Updating..."
+      : "Saving..."
+    : initialData
+    ? "Update Book"
+    : "Add Book";
+
+  // --- SUBMISSION HANDLER ---
+  const processAndSubmit = (data) => {
+    // Helper to stringify rich text content (Delta objects) for Firestore
+    const stringifyRichText = (value) => {
+      if (value && typeof value === "object" && Array.isArray(value.ops)) {
+        return JSON.stringify(value);
+      }
+      return value; // Return as is if not a Delta object
+    };
+
+    const combinedCategories = [
+      ...(data.standardCategoryNames || []),
+      ...(data.featuredCategoryNames || []),
+    ];
+
+    const formData = {
+      ...data,
+      name: stringifyRichText(data.name),
+      writer: stringifyRichText(data.writer),
+      description: stringifyRichText(data.description),
+      content: data.content.map((chapter) => ({
+        ...chapter,
+        body:
+          typeof chapter.body === "object"
+            ? JSON.stringify(chapter.body)
+            : chapter.body,
+      })),
+      categories: combinedCategories,
+      tableOfContents: tableOfContents.filter(
+        (item) => item.title && item.anchor
+      ),
+    };
+    delete formData.standardCategoryNames;
+    delete formData.featuredCategoryNames;
+
+    onSubmit(formData);
+  };
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
@@ -292,81 +375,46 @@ export const BookFormModal = ({
             }}
           >
             <form
-              onSubmit={handleSubmit((data) => {
-                // Combine standard and featured categories into a single array for submission
-                const combinedCategories = [
-                  ...(data.standardCategoryNames || []),
-                  ...(data.featuredCategoryNames || []),
-                ];
-
-                // Process chapter content to stringify Delta objects for storage.
-                const processedContent = data.content.map((chapter) => {
-                  // If chapter.body is a Quill Delta object, stringify it.
-                  if (
-                    typeof chapter.body === "object" &&
-                    chapter.body !== null
-                  ) {
-                    return { ...chapter, body: JSON.stringify(chapter.body) };
-                  }
-                  // Otherwise, it's already a string (or null/undefined), so return as is.
-                  return chapter;
-                });
-
-                const formData = {
-                  ...data,
-                  content: processedContent, // Use the processed chapter content
-                  categories: combinedCategories, // This is the combined array
-                  tableOfContents: tableOfContents.filter(
-                    (item) => item.title && item.anchor
-                  ),
-                };
-
-                // Remove the split category names from the final submission
-                delete formData.standardCategoryNames;
-                delete formData.featuredCategoryNames;
-
-                onSubmit(formData);
-              })}
+              onSubmit={handleSubmit(processAndSubmit)}
               className="space-y-4 h-full"
             >
               {/* First Row - Book Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Book Name */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Book Name*
-                  </label>
-                  <input
-                    type="text"
-                    {...register("name", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.name ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Book Name*</label>
+                  <Controller
+                    name="name"
+                    control={control}
+                    rules={{ required: "Required" }}
+                    render={({ field }) => (
+                      <ReactQuill
+                        theme="snow"
+                        value={field.value}
+                        onChange={(content, delta, source, editor) => field.onChange(editor.getContents())}
+                        modules={minimalModules}
+                        className={`bg-white quill-short ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                    )}
                   />
-                  {errors.name && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.name.message}
-                    </p>
-                  )}
+                  {errors.name && <p className="mt-1 text-sm text-error">{errors.name.message}</p>}
                 </div>
-
-                {/* Writer Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Writer*
-                  </label>
-                  <input
-                    type="text"
-                    {...register("writer", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.writer ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Writer*</label>
+                   <Controller
+                    name="writer"
+                    control={control}
+                    rules={{ required: "Required" }}
+                    render={({ field }) => (
+                      <ReactQuill
+                        theme="snow"
+                        value={field.value}
+                        onChange={(content, delta, source, editor) => field.onChange(editor.getContents())}
+                        modules={minimalModules}
+                        className={`bg-white quill-short ${errors.writer ? 'border-red-500' : 'border-gray-300'}`}
+                      />
+                    )}
                   />
-                  {errors.writer && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.writer.message}
-                    </p>
-                  )}
+                  {errors.writer && <p className="mt-1 text-sm text-error">{errors.writer.message}</p>}
                 </div>
               </div>
 
@@ -720,16 +768,29 @@ export const BookFormModal = ({
               </div>
 
               {/* Sixth Row - Description */}
-              <div>
+              <div className="pb-8">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description*
                 </label>
-                <textarea
-                  rows={3}
-                  {...register("description", { required: "Required" })}
-                  className={`w-full rounded-md border ${
-                    errors.description ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-primary focus:border-primary`}
+                <Controller
+                  name="description"
+                  control={control}
+                  rules={{ required: "Required" }}
+                  render={({ field }) => (
+                    <ReactQuill
+                      theme="snow"
+                      value={field.value}
+                      onChange={(content, delta, source, editor) =>
+                        field.onChange(editor.getContents())
+                      }
+                      modules={fullModules}
+                      className={`h-40 bg-white ${
+                        errors.description
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                    />
+                  )}
                 />
                 {errors.description && (
                   <p className="mt-1 text-sm text-error">
