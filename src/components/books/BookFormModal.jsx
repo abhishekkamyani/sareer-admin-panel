@@ -224,7 +224,9 @@ export const BookFormModal = ({
     setFileUploadError(null);
   };
   register("content", {
-    required: "Content is required",
+    validate: (value) =>
+      (Array.isArray(value) && value.length > 0) ||
+      "At least one chapter is required.",
   });
   const languages = ["English", "Urdu"];
 
@@ -297,14 +299,29 @@ export const BookFormModal = ({
                   ...(data.featuredCategoryNames || []),
                 ];
 
+                // Process chapter content to stringify Delta objects for storage.
+                const processedContent = data.content.map((chapter) => {
+                  // If chapter.body is a Quill Delta object, stringify it.
+                  if (
+                    typeof chapter.body === "object" &&
+                    chapter.body !== null
+                  ) {
+                    return { ...chapter, body: JSON.stringify(chapter.body) };
+                  }
+                  // Otherwise, it's already a string (or null/undefined), so return as is.
+                  return chapter;
+                });
+
                 const formData = {
                   ...data,
+                  content: processedContent, // Use the processed chapter content
                   categories: combinedCategories, // This is the combined array
                   tableOfContents: tableOfContents.filter(
                     (item) => item.title && item.anchor
                   ),
                 };
-                // Remove the split category names from the final submission if upsertBookToFirestore expects just 'categories'
+
+                // Remove the split category names from the final submission
                 delete formData.standardCategoryNames;
                 delete formData.featuredCategoryNames;
 

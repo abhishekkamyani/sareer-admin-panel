@@ -1,18 +1,42 @@
 import { useState } from "react";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+
+// Helper function to safely parse content for ReactQuill.
+// It handles content that is already a Delta object or a JSON string.
+const parseBodyContent = (body) => {
+  if (!body) return "";
+  if (typeof body === "object" && body !== null) {
+    return body; // It's already a Delta object
+  }
+  if (typeof body === "string") {
+    try {
+      // Try to parse it as JSON, in case it's a stored Delta string
+      const parsed = JSON.parse(body);
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed;
+      }
+    } catch (error) {
+      // If it fails, it's plain text. Let Quill handle it.
+      return body;
+    }
+  }
+  return body;
+};
 
 export const AddBookContent = ({ content, setContent }) => {
   const [selectedChapter, setSelectedChapter] = useState(null);
-
 
   // Add new chapter
   const addChapter = () => {
     const newChapter = {
       id: Date.now(),
       heading: "",
-      body: "",
+      body: "", // Start with an empty body
     };
     setContent((prev) => [...prev, newChapter]);
+    setSelectedChapter(newChapter.id); // Select the new chapter automatically
   };
 
   // Update chapter fields
@@ -30,6 +54,23 @@ export const AddBookContent = ({ content, setContent }) => {
 
   const current = content.find((item) => item.id === selectedChapter);
 
+  // Configuration for the ReactQuill toolbar
+  const quillModules = {
+    toolbar: [
+      [{ header: [1, 2, 3, 4, 5, 6, false] }],
+      ["bold", "italic", "underline", "strike", "blockquote"],
+      [{ color: [] }],
+      [
+        { list: "ordered" },
+        { list: "bullet" },
+        { indent: "-1" },
+        { indent: "+1" },
+      ],
+      [{ align: [] }],
+      ["link", "image"],
+      ["clean"],
+    ],
+  };
   return (
     <div className="flex gap-6 h-screen">
       {/* Table of Contents */}
@@ -45,33 +86,34 @@ export const AddBookContent = ({ content, setContent }) => {
           </button>
         </div>
         <div className="space-y-2">
-          {content.map((item) => (
-            <div
-              key={item.id}
-              className={`p-2 rounded cursor-pointer ${
-                selectedChapter === item.id
-                  ? "bg-grey-300"
-                  : "hover:bg-grey-200"
-              }`}
-              onClick={() => setSelectedChapter(item.id)}
-            >
-              <div className="flex justify-between items-center">
-                <span className="flex-1">
-                  {item.heading || "Untitled Chapter"}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteChapter(item.id);
-                  }}
-                  className="text-error hover:text-red-700"
-                  type="button"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
+          {Array.isArray(content) &&
+            content.map((item) => (
+              <div
+                key={item.id}
+                className={`p-2 rounded cursor-pointer ${
+                  selectedChapter === item.id
+                    ? "bg-grey-300"
+                    : "hover:bg-grey-200"
+                }`}
+                onClick={() => setSelectedChapter(item.id)}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="flex-1 truncate">
+                    {item.heading || "Untitled Chapter"}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChapter(item.id);
+                    }}
+                    className="text-error hover:text-red-700"
+                    type="button"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -88,13 +130,18 @@ export const AddBookContent = ({ content, setContent }) => {
               placeholder="Chapter Heading"
               className="mb-4 p-2 border rounded"
             />
-            <textarea
-              value={current.body}
-              onChange={(e) =>
-                updateChapter(current.id, "body", e.target.value)
-              }
-              className="flex-1 p-4 border rounded resize-none"
-              placeholder="Enter chapter content..."
+            {/* Replace textarea with ReactQuill */}
+            <ReactQuill
+              key={current.id} // This forces re-mount when chapter changes
+              theme="snow"
+              value={parseBodyContent(current.body)}
+              onChange={(contentValue, delta, source, editor) => {
+                // Update the state with the full Delta object from the editor
+                updateChapter(current.id, "body", editor.getContents());
+              }}
+              modules={quillModules}
+              className="flex-1 mb-4" // Use flex-1 to fill available space
+              style={{ display: "flex", flexDirection: "column" }} // Ensure Quill editor expands correctly
             />
             <div className="mt-4 flex justify-end">
               <button
@@ -108,7 +155,7 @@ export const AddBookContent = ({ content, setContent }) => {
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            Select a chapter to edit
+            Select a chapter to edit or add a new one.
           </div>
         )}
       </div>
