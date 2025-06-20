@@ -9,6 +9,12 @@ import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css"; // Import Quill styles
+import {
+  quillModules,
+  parseRichText,
+  generateQuillFontCss,
+  fontList,
+} from "../../utils/utility"; // Make sure this path is correct
 
 const availableTags = [
   "Bestseller",
@@ -18,36 +24,16 @@ const availableTags = [
   "Staff Pick",
 ];
 
-const parseRichText = (content) => {
-  if (!content) return "";
-  if (
-    typeof content === "object" &&
-    content !== null &&
-    Array.isArray(content.ops)
-  ) {
-    return content; // Already a valid Delta object
-  }
-  if (typeof content === "string") {
-    try {
-      const parsed = JSON.parse(content);
-      if (
-        typeof parsed === "object" &&
-        parsed !== null &&
-        Array.isArray(parsed.ops)
-      ) {
-        return parsed; // It was a stringified Delta object
-      }
-    } catch (e) {
-      // Not a JSON string, so treat as plain text/HTML
-      return content;
-    }
-  }
-  return content; // Fallback
-};
+const fontCss = generateQuillFontCss();
 
 // --- QUILL TOOLBAR CONFIGURATIONS ---
 const minimalModules = {
-  toolbar: [["bold", "italic", "underline"]],
+  toolbar: [
+    ["bold", "italic", "underline", "strike", "blockquote"],
+    [{ color: [] }],
+    [{ font: fontList }],
+    ["clean"],
+  ],
 };
 
 const fullModules = {
@@ -351,6 +337,7 @@ export const BookFormModal = ({
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
+      <style>{fontCss}</style>
       <div className="h-full w-full absolute bg-gray-700 opacity-80"></div>
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
         {/* Modal Header */}
@@ -379,9 +366,11 @@ export const BookFormModal = ({
               className="space-y-4 h-full"
             >
               {/* First Row - Book Info */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Book Name*</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Book Name*
+                  </label>
                   <Controller
                     name="name"
                     control={control}
@@ -390,17 +379,27 @@ export const BookFormModal = ({
                       <ReactQuill
                         theme="snow"
                         value={field.value}
-                        onChange={(content, delta, source, editor) => field.onChange(editor.getContents())}
+                        onChange={(content, delta, source, editor) =>
+                          field.onChange(editor.getContents())
+                        }
                         modules={minimalModules}
-                        className={`bg-white quill-short ${errors.name ? 'border-red-500' : 'border-gray-300'}`}
+                        className={`bg-white quill-short ${
+                          errors.name ? "border-red-500" : "border-gray-300"
+                        }`}
                       />
                     )}
                   />
-                  {errors.name && <p className="mt-1 text-sm text-error">{errors.name.message}</p>}
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-error">
+                      {errors.name.message}
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Writer*</label>
-                   <Controller
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Writer*
+                  </label>
+                  <Controller
                     name="writer"
                     control={control}
                     rules={{ required: "Required" }}
@@ -408,13 +407,21 @@ export const BookFormModal = ({
                       <ReactQuill
                         theme="snow"
                         value={field.value}
-                        onChange={(content, delta, source, editor) => field.onChange(editor.getContents())}
+                        onChange={(content, delta, source, editor) =>
+                          field.onChange(editor.getContents())
+                        }
                         modules={minimalModules}
-                        className={`bg-white quill-short ${errors.writer ? 'border-red-500' : 'border-gray-300'}`}
+                        className={`bg-white quill-short ${
+                          errors.writer ? "border-red-500" : "border-gray-300"
+                        }`}
                       />
                     )}
                   />
-                  {errors.writer && <p className="mt-1 text-sm text-error">{errors.writer.message}</p>}
+                  {errors.writer && (
+                    <p className="mt-1 text-sm text-error">
+                      {errors.writer.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -783,7 +790,7 @@ export const BookFormModal = ({
                       onChange={(content, delta, source, editor) =>
                         field.onChange(editor.getContents())
                       }
-                      modules={fullModules}
+                      modules={quillModules}
                       className={`h-40 bg-white ${
                         errors.description
                           ? "border-red-500"

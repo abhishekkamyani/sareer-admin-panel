@@ -1,7 +1,6 @@
 import { collection, getDocs, Timestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db } from "./firebase";
-import dayjs from "dayjs";
 
 export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
     try {
@@ -68,12 +67,6 @@ export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
         throw error;
     }
 };
-
-function convertTimestampToDate(timestamp) {
-    const milliseconds = timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000;
-    const date = dayjs(milliseconds);
-    return date;
-}
 
 export const fetchBooks = async () => {
     const snapshot = await getDocs(collection(db, "books"));
