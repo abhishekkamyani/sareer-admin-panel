@@ -13,7 +13,6 @@ const englishFonts = [
     "playfair-display", "poppins", "lora", "eb-garamond", "crimson-text"
 ];
 
-
 export const fontList = [...urduFonts, ...englishFonts];
 Font.whitelist = fontList;
 
