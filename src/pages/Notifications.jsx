@@ -29,18 +29,15 @@ import {
   getDocs,
   query,
   orderBy,
-  // Removed: addDoc, // No longer directly add to notifications for sending
   where,
   getCountFromServer,
 } from "firebase/firestore";
 import { db } from "../utils/firebase";
 import dayjs from "dayjs";
-// New Import: For calling Firebase Cloud Functions
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 const { TextArea } = Input;
 const { Option } = Select;
-const { confirm } = Modal;
 
 export const Notifications = () => {
   const [form] = Form.useForm();
@@ -51,22 +48,21 @@ export const Notifications = () => {
   const [scheduled, setScheduled] = useState(false);
   const [userCount, setUserCount] = useState(0);
   const [sending, setSending] = useState(false);
-  const [formValues, setFormValues] = useState({});
 
-  // Initialize Firebase Functions instance and callable function
+  // No longer need to store form values in state
+  // const [formValues, setFormValues] = useState(null);
+
   const functions = getFunctions();
-  const sendOneSignalNotification = httpsCallable(functions, 'sendOneSignalNotification');
+  const sendPushNotification = httpsCallable(functions, "sendPushNotification");
 
-
-  // Fetch books and notifications
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [booksQuery, notifsQuery] = [
-        query(collection(db, "books")),
-        // Notifications are now saved by the Cloud Function, so fetch them here.
-        query(collection(db, "notifications"), orderBy("createdAt", "desc")),
-      ];
+      const booksQuery = query(collection(db, "books"));
+      const notifsQuery = query(
+        collection(db, "notifications"),
+        orderBy("createdAt", "desc")
+      );
 
       const [booksSnapshot, notifsSnapshot] = await Promise.all([
         getDocs(booksQuery),
@@ -86,100 +82,87 @@ export const Notifications = () => {
       );
     } catch (error) {
       console.error("Error fetching data:", error);
-      message.error("Failed to load data");
+      message.error("Failed to load data from Firestore.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Estimate number of recipients (still valid for UI display)
   const estimateRecipients = async (target, bookId) => {
     if (!target || target.length === 0) {
       setUserCount(0);
       return;
     }
-
     try {
       let q = query(collection(db, "users"));
-
       if (target.includes("Specific Book Buyers") && bookId) {
         q = query(q, where(`purchasedBooks.${bookId}`, "==", true));
       }
-
       if (target.includes("Inactive Users")) {
-        const inactiveDate = dayjs().subtract(30, 'days').toDate(); // Use dayjs for consistency
+        const inactiveDate = dayjs().subtract(30, "days").toDate();
         q = query(q, where("lastActive", "<", inactiveDate));
       }
-
       const snapshot = await getCountFromServer(q);
-      console.log("Estimated recipients from Firestore:", snapshot.data().count);
-
       setUserCount(snapshot.data().count);
     } catch (error) {
       console.error("Error estimating recipients:", error);
-      message.error("Failed to estimate recipients");
+      message.error("Failed to estimate recipients.");
     }
   };
 
-  // Handle form value changes
-  const handleFormChange = (changedValues, allValues) => {
-    setFormValues(allValues);
-
-    // Estimate recipients when relevant fields change
-    if (changedValues.target || changedValues.bookId || changedValues.type) {
+  const handleFormChange = (_, allValues) => {
+    if (allValues.target || allValues.bookId) {
       estimateRecipients(allValues.target, allValues.bookId);
     }
   };
 
-  const handleSubmit = async (values) => {
-    if (values.message.length > 200) {
-      message.error("Message must be 200 characters or less");
-      return;
-    }
-    // Show modal before calling the Cloud Function
-    setIsModalOpen(true);
+  // **THE FIX: This function now just validates the form and opens the modal.**
+  const handleOpenConfirmModal = () => {
+    form
+      .validateFields()
+      .then(() => {
+        setIsModalOpen(true);
+      })
+      .catch((info) => {
+        console.log("Validate Failed:", info);
+        message.warning("Please fill out all required fields.");
+      });
   };
 
-  // Handle actual submission after confirmation (calls the Cloud Function)
+  // **THE FIX: This function now gets the latest form values itself before sending.**
   const handleConfirmSubmit = async () => {
+    setSending(true);
     try {
-      setSending(true);
-      const values = form.getFieldsValue(); // Get the latest form values
+      // Get latest values directly from the form instance, ensuring they're fresh.
+      const values = await form.getFieldsValue();
 
-      // Prepare data for the Cloud Function call
       const payload = {
         type: values.type,
         target: values.target,
         message: values.message,
-        scheduledDate: scheduled ? values.sendDate.toDate().toISOString() : null, // Send as ISO string
-        estimatedRecipients: userCount, // Pass the estimated count for storage
+        scheduledDate:
+          scheduled && values.sendDate ? values.sendDate.toISOString() : null,
         ...(values.bookId && { bookId: values.bookId }),
       };
 
-      // Call the Firebase Cloud Function
-      const response = await sendOneSignalNotification(payload);
-
-      console.log("Notification Cloud Function response:", response.data);
-
+      const result = await sendPushNotification(payload);
       message.success(
-        `Notification ${scheduled ? "scheduled" : "sent"} via OneSignal.`
+        result.data.message || `Notification job started successfully.`
       );
+
       form.resetFields();
       setScheduled(false);
       setUserCount(0);
-      fetchData(); // Re-fetch history to show the newly sent/scheduled notification
+      fetchData();
     } catch (error) {
-      console.error("Error sending notification via OneSignal:", error);
-      message.error(
-        `Failed to ${scheduled ? "schedule" : "send"} notification: ${error.message}`
-      );
+      console.error("Error calling sendPushNotification function:", error);
+      message.error(`Failed to send notification: ${error.message}`);
     } finally {
       setSending(false);
       setIsModalOpen(false);
     }
   };
 
-  // Initial data fetch
   useEffect(() => {
     fetchData();
   }, []);
@@ -190,41 +173,26 @@ export const Notifications = () => {
     "Cart Reminder",
     "Promotion",
   ];
-
   const targetOptions = ["All Users", "Specific Book Buyers", "Inactive Users"];
 
   const columns = [
-    {
-      title: "Message",
-      dataIndex: "message",
-      key: "message",
-      ellipsis: true,
-      render: (text) => <span>{text}</span>,
-    },
-    {
-      title: "Type",
-      dataIndex: "type",
-      key: "type",
-      width: 120,
-      filters: notificationTypes.map((type) => ({ text: type, value: type })),
-      onFilter: (value, record) => record.type === value,
-    },
+    { title: "Message", dataIndex: "message", key: "message", ellipsis: true },
+    { title: "Type", dataIndex: "type", key: "type", width: 150 },
     {
       title: "Date",
       dataIndex: "sentAt",
       key: "date",
-      render: (date) => dayjs(date).format("MMM D,YYYY h:mm A"),
-      sorter: (a, b) => a.sentAt - b.sentAt,
-      width: 150,
+      render: (date) =>
+        date ? dayjs(date).format("MMM D, YYYY h:mm A") : "N/A",
+      sorter: (a, b) => (a.sentAt || 0) - (b.sentAt || 0),
+      width: 200,
     },
     {
-      title: "Recipients",
-      dataIndex: "estimatedRecipients", // This column now shows your Firestore estimate
+      title: "Recipients (Est.)",
+      dataIndex: "estimatedRecipients",
       key: "recipients",
-      render: (count) => count?.toLocaleString() || "N/A",
-      width: 100,
-      sorter: (a, b) =>
-        (a.estimatedRecipients || 0) - (b.estimatedRecipients || 0),
+      render: (count) => count?.toLocaleString() || "0",
+      width: 150,
     },
     {
       title: "Status",
@@ -235,148 +203,111 @@ export const Notifications = () => {
           color={
             status === "sent"
               ? "green"
-              : status === "pending"
+              : status === "scheduled"
               ? "blue"
               : "orange"
           }
         >
-          {status.toUpperCase()}
+          {status?.toUpperCase() || "UNKNOWN"}
         </Tag>
       ),
-      filters: [
-        { text: "Sent", value: "sent" },
-        { text: "Pending", value: "pending" },
-        { text: "Scheduled", value: "scheduled" },
-      ],
-      onFilter: (value, record) => record.status === value,
       width: 120,
     },
   ];
 
   return (
-    <div className="!p-6">
+    <div className="p-6 bg-gray-50 min-h-screen">
       <Row gutter={[24, 24]}>
-        {/* Notification Form */}
         <Col xs={24} md={10}>
           <Card
-            className="!border-grey-200"
             title={
-              <span className="!text-primary">
-                <SendOutlined className="!mr-2" />
+              <span className="text-xl font-semibold">
+                <SendOutlined className="mr-2" />
                 Send Notification
               </span>
             }
             extra={
-              <Badge
-                count={userCount}
-                showZero
-                overflowCount={9999}
-                className="![&>.ant-badge-count]:!bg-primary"
-              >
-                <Tag
-                  icon={<UserOutlined />}
-                  className={`!flex !items-center ${
-                    userCount > 0
-                      ? "!bg-primary-light !text-primary"
-                      : "!bg-grey-100 !text-grey-600"
-                  }`}
-                >
+              <Badge count={userCount} showZero overflowCount={9999}>
+                <Tag icon={<UserOutlined />} color="blue">
                   {userCount.toLocaleString()} recipients
                 </Tag>
               </Badge>
             }
           >
+            {/* The form no longer uses onFinish, the button triggers the process */}
             <Form
               form={form}
               layout="vertical"
-              onFinish={handleSubmit}
               onValuesChange={handleFormChange}
               initialValues={{ sendDate: dayjs() }}
             >
               <Form.Item
                 name="type"
-                label={
-                  <span className="!text-grey-700">Notification Type</span>
-                }
-                rules={[{ required: true, message: "Please select type" }]}
+                label="Notification Type"
+                rules={[{ required: true }]}
               >
-                <Select
-                  placeholder="Select type"
-                  className="hover:!border-primary focus:!border-primary"
-                  dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
-                >
-                  {notificationTypes.map((type) => (
-                    <Option key={type} value={type}>
-                      {type}
+                <Select placeholder="Select type">
+                  {notificationTypes.map((t) => (
+                    <Option key={t} value={t}>
+                      {t}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
-
               <Form.Item
                 name="target"
-                label={<span className="!text-grey-700">Target Audience</span>}
-                rules={[{ required: true, message: "Please select audience" }]}
+                label="Target Audience"
+                rules={[{ required: true }]}
               >
                 <Select
                   mode="multiple"
                   placeholder="Select recipients"
                   maxTagCount="responsive"
-                  className="hover:!border-primary focus:!border-primary"
-                  dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
                 >
-                  {targetOptions.map((option) => (
-                    <Option key={option} value={option}>
-                      {option}
+                  {targetOptions.map((o) => (
+                    <Option key={o} value={o}>
+                      {o}
                     </Option>
                   ))}
                 </Select>
               </Form.Item>
-
               <Form.Item
                 name="message"
-                label={<span className="!text-grey-700">Message</span>}
+                label="Message"
                 rules={[
-                  { required: true, message: "Please enter message" },
-                  { max: 200, message: "Message too long" },
+                  { required: true, message: "Please enter a message!" },
+                  { max: 200 },
                 ]}
               >
                 <TextArea
                   rows={4}
                   showCount
                   maxLength={200}
-                  placeholder="Enter notification message (max 200 chars)"
-                  className="hover:!border-primary focus:!border-primary"
+                  placeholder="Enter notification message..."
                 />
               </Form.Item>
-
               <Form.Item
                 noStyle
-                shouldUpdate={(prevValues, currentValues) =>
-                  prevValues.type !== currentValues.type
-                }
+                shouldUpdate={(prev, curr) => prev.type !== curr.type}
               >
                 {({ getFieldValue }) =>
-                  (getFieldValue("type") === "New Release" ||
-                    getFieldValue("type") === "Book Update") && (
+                  ["New Release", "Book Update"].includes(
+                    getFieldValue("type")
+                  ) && (
                     <Form.Item
                       name="bookId"
-                      label={<span className="!text-grey-700">Book</span>}
-                      rules={[
-                        { required: true, message: "Please select a book" },
-                      ]}
+                      label="Book"
+                      rules={[{ required: true }]}
                     >
                       <Select
                         placeholder="Select book"
                         showSearch
                         optionFilterProp="children"
-                        suffixIcon={<BookOutlined className="!text-grey-500" />}
-                        className="hover:!border-primary focus:!border-primary"
-                        dropdownClassName="![&_.ant-select-item]:hover:!bg-primary-light ![&_.ant-select-item-option-selected]:!bg-primary-light"
+                        suffixIcon={<BookOutlined />}
                       >
-                        {books.map((book) => (
-                          <Option key={book.id} value={book.id}>
-                            {book.name}
+                        {books.map((b) => (
+                          <Option key={b.id} value={b.id}>
+                            {b.name}
                           </Option>
                         ))}
                       </Select>
@@ -384,24 +315,19 @@ export const Notifications = () => {
                   )
                 }
               </Form.Item>
-
               <Form.Item>
                 <Checkbox
                   checked={scheduled}
                   onChange={(e) => setScheduled(e.target.checked)}
-                  className="[&>.ant-checkbox-inner]:hover:!border-primary [&>.ant-checkbox-checked>.ant-checkbox-inner]:!bg-primary [&>.ant-checkbox-checked>.ant-checkbox-inner]:!border-primary"
                 >
                   Schedule for later
                 </Checkbox>
               </Form.Item>
-
               {scheduled && (
                 <Form.Item
                   name="sendDate"
-                  label={
-                    <span className="!text-grey-700">Schedule Date & Time</span>
-                  }
-                  rules={[{ required: true, message: "Please select date" }]}
+                  label="Schedule Date & Time"
+                  rules={[{ required: true }]}
                 >
                   <DatePicker
                     showTime
@@ -409,19 +335,19 @@ export const Notifications = () => {
                     disabledDate={(current) =>
                       current && current < dayjs().startOf("day")
                     }
-                    className="!w-full hover:!border-primary focus:!border-primary [&_.ant-picker-input>input]:!placeholder-grey-400"
+                    className="w-full"
                   />
                 </Form.Item>
               )}
-
               <Form.Item>
+                {/* This button is no longer a 'submit' type. It just opens the modal. */}
                 <Button
                   type="primary"
-                  htmlType="submit"
+                  onClick={handleOpenConfirmModal}
                   icon={scheduled ? <ScheduleOutlined /> : <SendOutlined />}
                   size="large"
                   loading={sending}
-                  className="!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark !w-full"
+                  className="w-full"
                 >
                   {scheduled
                     ? "Schedule Notification"
@@ -431,14 +357,11 @@ export const Notifications = () => {
             </Form>
           </Card>
         </Col>
-
-        {/* Notification History */}
         <Col xs={24} md={14}>
           <Card
-            className="!border-grey-200"
             title={
-              <span className="!text-primary">
-                <HistoryOutlined className="!mr-2" />
+              <span className="text-xl font-semibold">
+                <HistoryOutlined className="mr-2" />
                 Notification History
               </span>
             }
@@ -449,23 +372,16 @@ export const Notifications = () => {
                 dataSource={notifications}
                 rowKey="id"
                 scroll={{ x: true }}
-                pagination={{
-                  pageSize: 5,
-                  showSizeChanger: true,
-                  pageSizeOptions: ["5", "10", "20", "50"],
-                }}
-                className="!mt-4 [&_.ant-table-thead>tr>th]:!bg-grey-50 [&_.ant-table-tbody>tr:hover>td]:!bg-primary-light"
+                pagination={{ pageSize: 5 }}
               />
             </Spin>
           </Card>
         </Col>
       </Row>
-
-      {/* Confirmation Modal */}
       <Modal
         title={
-          <span className="!text-primary">
-            <ExclamationCircleOutlined className="!mr-2" />
+          <span className="font-semibold">
+            <ExclamationCircleOutlined className="mr-2" />
             Confirm {scheduled ? "Scheduling" : "Sending"}
           </span>
         }
@@ -475,17 +391,12 @@ export const Notifications = () => {
         okText="Confirm"
         cancelText="Cancel"
         confirmLoading={sending}
-        okButtonProps={{
-          className:
-            "!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark",
-        }}
-        cancelButtonProps={{
-          className:
-            "hover:!text-primary !border-grey-300 hover:!border-primary",
-        }}
       >
-        <p>This will send a notification to approximately {userCount} users.</p>
-        <p>Are you sure you want to continue?</p>
+        <p>
+          This action will target approximately{" "}
+          <strong>{userCount.toLocaleString()}</strong> users.
+        </p>
+        <p>Are you sure you want to proceed?</p>
       </Modal>
     </div>
   );

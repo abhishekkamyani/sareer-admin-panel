@@ -1,139 +1,111 @@
 /**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * To deploy this function:
+ * 1. Replace the contents of your existing `functions/index.js` file with this code.
+ * 2. Run `firebase deploy --only functions` from your project root.
  */
-// functions/index.js
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const axios = require('axios'); // Make sure to install axios in your functions directory: npm install axios
 
-// Initialize Firebase Admin SDK
-// This uses your Firebase project's default credentials.
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
 admin.initializeApp();
+const db = admin.firestore();
 
-// Access OneSignal credentials from Firebase Functions environment configuration.
-// THESE MUST BE SET BEFORE DEPLOYMENT! See Phase 3, Step 2.
-const ONE_SIGNAL_APP_ID = functions.config().onesignal.app_id;
-const ONE_SIGNAL_REST_API_KEY = functions.config().onesignal.rest_api_key;
+exports.sendPushNotification = functions.https.onCall(async (data, context) => {
+  // Optional: Add admin role verification for security
+  // if (!context.auth || !context.auth.token.admin) {
+  //   throw new functions.https.HttpsError(
+  //     "permission-denied",
+  //     "Must be an administrative user to send notifications."
+  //   );
+  // }
 
-// HTTPS Callable function to send a OneSignal notification
-exports.sendOneSignalNotification = functions.https.onCall(async (data, context) => {
-    // --- Security Check (Highly Recommended) ---
-    // Ensure the user calling this function is authenticated.
-    // You might want to add more granular checks, e.g., if the user has an 'admin' role.
-    if (!context.auth) {
-        console.error('Unauthenticated call to sendOneSignalNotification');
-        throw new functions.https.HttpsError('unauthenticated', 'Authentication required to send notifications.');
-    }
-    // --- End Security Check ---
+  const { message, type, target, bookId, scheduledDate } = data;
 
-    const { message, type, target, bookId, scheduledDate, estimatedRecipients } = data;
+  // --- 1. Construct the Base Firestore Query to Find Target Users ---
+  let usersQuery = db.collection("users");
 
-    // Basic input validation
-    if (!message || !type || !target || target.length === 0) {
-        console.error('Missing required fields for notification:', data);
-        throw new functions.https.HttpsError('invalid-argument', 'Message, type, and target audience are required.');
-    }
-
-    let segments = [];
-    let filters = [];
-    let headings = { en: type }; // Default heading for the notification
-
-    // Logic to map your admin panel's 'target' options to OneSignal's targeting
-    if (target.includes("All Users")) {
-        // "Subscribed Users" is a common default segment in OneSignal for all active users
-        segments.push("Subscribed Users");
-    }
+  // We add a defensive check to ensure 'target' is an array before using it.
+  if (Array.isArray(target) && target.length > 0) {
     if (target.includes("Specific Book Buyers") && bookId) {
-        // For specific book buyers, you'd ideally use OneSignal Tags.
-        // Your Flutter app needs to set these tags when a user purchases a book:
-        // OneSignal.User.addTag(`purchased_book_${bookId}`, "true");
-        filters.push({ "field": "tag", "key": `purchased_book_${bookId}`, "relation": "=", "value": "true" });
-        // Important: If "All Users" is also selected, you might need to reconsider
-        // how segments and filters interact. For now, we combine them.
-    }
-    if (target.includes("Inactive Users")) {
-        // OneSignal often has a predefined "Inactive Users" segment based on app activity.
-        segments.push("Inactive Users");
+      usersQuery = usersQuery.where(`purchasedBooks.${bookId}`, "==", true);
     }
 
-    // Construct the OneSignal API request body
-    const notificationBody = {
-        app_id: ONE_SIGNAL_APP_ID,
-        contents: { en: message }, // The main notification message
-        headings: headings,       // The title of the notification
-        // Custom data that your Flutter app can read when the notification is received/tapped
-        data: {
-            notificationType: type,
-            ...(bookId && { bookId: bookId }), // Include bookId if applicable
-        },
-        // Targeting parameters for OneSignal
-        included_segments: segments.length > 0 ? segments : undefined,
-        filters: filters.length > 0 ? filters : undefined, // Filters are applied on top of segments
-        // You can also target specific users by player_id or external_user_id if you have them:
-        // include_player_ids: ["player_id_from_onesignal"],
-        // include_external_user_ids: ["firebase_uid_of_user"], // If you map Firebase UIDs to OneSignal external_user_ids
+    if (target.includes("Inactive Users")) {
+      const inactiveDate = new Date();
+      inactiveDate.setDate(inactiveDate.getDate() - 30);
+      usersQuery = usersQuery.where("lastActive", "<", inactiveDate);
+    }
+  } else {
+    // If target is missing or not an array, we can log it.
+    console.warn("Warning: 'target' array was missing, empty, or invalid. Proceeding without audience filters.");
+  }
+
+  // --- 2. Fetch User Documents and Collect FCM Tokens ---
+  const userDocs = await usersQuery.get();
+  if (userDocs.empty) {
+    console.log("No users found for the selected target.");
+  }
+
+  const tokens = [];
+  userDocs.forEach((doc) => {
+    const userData = doc.data();
+    if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
+      tokens.push(...userData.fcmTokens);
+    }
+  });
+
+  const uniqueTokens = [...new Set(tokens)];
+  console.log(`Found ${uniqueTokens.length} unique device tokens to target.`);
+
+  // --- 3. Save the Notification to Firestore History ---
+  // **THE FIX IS HERE:** Provide default fallback values for any potentially undefined fields.
+  const notificationRecord = {
+    message: message || "No message content.", // Fallback for undefined message
+    type: type || "General", // Fallback for undefined type
+    target: target || ["Unknown"], 
+    bookId: bookId || null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    status: scheduledDate ? "scheduled" : (uniqueTokens.length > 0 ? "sent" : "processed"),
+    sentAt: scheduledDate ? new Date(scheduledDate) : admin.firestore.FieldValue.serverTimestamp(),
+    estimatedRecipients: uniqueTokens.length,
+    stats: {
+      successCount: 0,
+      failureCount: 0,
+    },
+  };
+
+  const notifRef = await db.collection("notifications").add(notificationRecord);
+  console.log("Notification record saved to Firestore with ID:", notifRef.id);
+
+  // --- 4. Send the Notification via FCM (if not scheduled for later) ---
+  if (uniqueTokens.length > 0 && !scheduledDate) {
+    const payload = {
+      notification: {
+        title: `E-Book Store: ${type || 'Notification'}`, // Use fallback for title too
+        body: message,
+      },
+      data: {
+        type: type || "General",
+        bookId: bookId || "",
+        screen: "/notifications",
+      },
     };
 
-    // Handle scheduled notifications
-    if (scheduledDate) {
-        // OneSignal expects `send_after` in ISO 8601 format (YYYY-MM-DDTHH:mm:ssZ or YYYY-MM-DD HH:MM:SS TZ)
-        // Using toISOString() is generally reliable.
-        notificationBody.send_after = new Date(scheduledDate).toISOString();
-    }
+    console.log("Sending FCM message...");
+    const response = await admin.messaging().sendToDevice(uniqueTokens, payload);
 
-    try {
-        // Make the HTTP POST request to the OneSignal API
-        const response = await axios.post('https://onesignal.com/api/v1/notifications', notificationBody, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Basic ${ONE_SIGNAL_REST_API_KEY}` // Use your REST API Key
-            }
-        });
+    await notifRef.update({
+      "stats.successCount": response.successCount,
+      "stats.failureCount": response.failureCount,
+    });
 
-        console.log('OneSignal API Response:', response.data);
-
-        // --- Save Notification History to Firestore ---
-        // It's important to save this after the OneSignal API call,
-        // to ensure the notification was at least *sent to OneSignal*.
-        await admin.firestore().collection("notifications").add({
-            type: type,
-            target: target,
-            message: message,
-            status: scheduledDate ? "scheduled" : "sent", // Reflects state at OneSignal
-            createdAt: admin.firestore.FieldValue.serverTimestamp(), // Server timestamp for creation
-            sentAt: scheduledDate ? new Date(scheduledDate) : new Date(), // Actual send/scheduled time
-            estimatedRecipients: estimatedRecipients, // Your calculated estimate
-            ...(bookId && { bookId: bookId }),
-            oneSignalId: response.data.id, // Store OneSignal's notification ID for future reference
-            oneSignalRecipients: response.data.recipients, // OneSignal's count of target recipients
-            // You might also want to store the full response.data for debugging
-        });
-
-        return { success: true, message: 'Notification sent/scheduled successfully via OneSignal.', oneSignalResponse: response.data };
-
-    } catch (error) {
-        console.error('Error sending OneSignal notification:', error.response ? error.response.data : error.message);
-
-        // Re-throw an HttpsError to provide meaningful error messages to the client
-        throw new functions.https.HttpsError(
-            'internal',
-            'Failed to send notification via OneSignal.',
-            error.response ? error.response.data : { message: error.message }
-        );
-    }
+    console.log(`Successfully sent message to ${response.successCount} devices.`);
+    return { success: true, message: `Notification sent to ${response.successCount} users.` };
+  } else if (scheduledDate) {
+    console.log("Notification is scheduled. No message sent now.");
+    return { success: true, message: "Notification successfully scheduled." };
+  } else {
+    console.log("No tokens found, so no message sent.");
+    return { success: true, message: "Request processed, but no users to notify." };
+  }
 });
-const {onRequest} = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
-
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
-
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
