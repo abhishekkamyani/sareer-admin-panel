@@ -21,13 +21,13 @@ const Layout = ({ children }) => {
       {/* </div> */}
 
       {/* Main content area */}
-      <div className="flex-1 lg:ml-8 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
         
         {/* Main content - adjusts width based on sidebar state */}
-        <main className="flex-1 overflow-y-auto bg-gray-100">
-          <div className={`mx-auto transition-all duration-200`}>
+        <main className="flex-1 overflow-y-auto">
+          <div className={`mx-auto transition-all duration-200 rounded-xl`}>
             <div className="w-full mx-auto">
               {children || <Outlet />}
             </div>

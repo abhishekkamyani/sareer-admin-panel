@@ -7,7 +7,7 @@ const antIcon = (
 
 export const Loader = () => {
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
+    <div className="absolute left-1/2 top-1/2 -translate-1/2">
       <Spin indicator={antIcon} />
     </div>
   );

@@ -62,7 +62,8 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
       boxShadow: '0 1px 4px rgba(0,21,41,0.08)',
       display: 'flex',
       justifyContent: !isLargeScreen ? 'space-between' : "end",
-      alignItems: 'center'
+      alignItems: 'center',
+      zIndex: 99,
     }}>
       {/* Sidebar toggle button - hidden on lg screens and larger */}
       {!isLargeScreen && (
