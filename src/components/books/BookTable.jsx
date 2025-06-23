@@ -4,9 +4,6 @@ import { Box, IconButton, Tooltip } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 
 const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
-  // Define columns
-  console.log("categories in book table", categories);
-
   const columns = useMemo(
     () => [
       {
@@ -201,10 +198,6 @@ const RenderRichText = ({ content }) => {
 
     // Step 2: Parse the JSON string into a Delta object
     const delta = JSON.parse(content);
-    console.log(
-      "!delta.ops || !Array.isArray(delta.ops)",
-      !delta.ops || !Array.isArray(delta.ops)
-    );
 
     // Step 3: Check if it's a valid Quill Delta (has an 'ops' array)
     if (!delta.ops || !Array.isArray(delta.ops)) {

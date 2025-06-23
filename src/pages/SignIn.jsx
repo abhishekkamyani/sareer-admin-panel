@@ -9,10 +9,10 @@ export default function SignIn() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    if (currentUser?.email === import.meta.env.VITE_FIREBASE_ADMIN_EMAIL) {
+    if (currentUser && currentUser?.email && currentUser?.email === import.meta.env.VITE_FIREBASE_ADMIN_EMAIL && !authLoading) {
       navigate("/");
     }
   }, [currentUser, navigate]);

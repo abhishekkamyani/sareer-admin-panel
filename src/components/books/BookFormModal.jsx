@@ -36,15 +36,54 @@ const minimalModules = {
   ],
 };
 
-const fullModules = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ["bold", "italic", "underline", "strike", "blockquote"],
-    [{ list: "ordered" }, { list: "bullet" }],
-    ["link", "image"],
-    ["clean"],
-  ],
-};
+const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">
+      {label}
+    </label>
+    <div
+      className={`flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md ${
+        error ? "border-red-500" : "border-gray-300"
+      }`}
+    >
+      {previewUrl ? (
+        <div className="relative">
+          <img src={previewUrl} alt="Preview" className="h-48 object-contain" />
+          <button
+            type="button"
+            onClick={() => onFileChange(null)}
+            className="absolute top-0 right-0 bg-red-500 rounded-full p-1 text-white"
+          >
+            <XMarkIcon className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-1 text-center">
+          <div className="flex justify-center">
+            <CloudArrowUpIcon className="h-12 w-12 text-gray-400" />
+          </div>
+          <div className="flex text-sm text-gray-600">
+            <label
+              htmlFor={label.toLowerCase().replace(" ", "-")}
+              className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-success hover:text-primary"
+            >
+              <span>Upload a file</span>
+              <input
+                id={label.toLowerCase().replace(" ", "-")}
+                type="file"
+                accept="image/png, image/jpeg"
+                className="sr-only"
+                onChange={(e) => onFileChange(e.target.files[0])}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+        </div>
+      )}
+    </div>
+    {error && <p className="mt-1 text-sm text-error">{error}</p>}
+  </div>
+);
 
 export const BookFormModal = ({
   isOpen,
@@ -112,6 +151,8 @@ export const BookFormModal = ({
           tag: initialData.tag || "",
           keywords: initialData.keywords || [],
           coverUrl: initialData?.coverUrl || null,
+          frontPageUrl: initialData.frontPageUrl || null,
+          backPageUrl: initialData.backPageUrl || null,
           // coverImage is handled by state/preview, not directly in form data for initial load
           content: initialData.content || [],
           tableOfContents: initialData.tableOfContents || [], // This is initialized from prop too
@@ -133,6 +174,8 @@ export const BookFormModal = ({
           tag: "",
           keywords: [],
           coverImage: null,
+          frontPageUrl: null,
+          backPageUrl: null,
           contentRestriction: 5,
           content: [],
           tableOfContents: [],
@@ -140,10 +183,13 @@ export const BookFormModal = ({
         },
   });
 
-  const [coverPreview, setCoverPreview] = useState(
-    initialData?.coverUrl || null
-  ); // Initialize with initialData
-  const [fileUploadError, setFileUploadError] = useState(null);
+  // Initialize with initialData
+  const [previews, setPreviews] = useState({
+    cover: initialData?.coverUrl || null,
+    frontPage: initialData?.frontPageUrl || null,
+    backPage: initialData?.backPageUrl || null,
+  });
+  const [fileUploadErrors, setFileUploadErrors] = useState({});
   const [tableOfContents, setTableOfContents] = useState(
     initialData?.tableOfContents || []
   ); // Initialize with initialData
@@ -199,9 +245,15 @@ export const BookFormModal = ({
         keywords: initialData?.keywords || [],
         status: initialData?.status || "published",
         coverUrl: initialData?.coverUrl || null,
+        frontPageUrl: initialData.frontPageUrl || null,
+        backPageUrl: initialData.backPageUrl || null,
       });
 
-      setCoverPreview(initialData?.coverUrl || null);
+      setPreviews({
+        cover: initialData?.coverUrl || null,
+        frontPage: initialData?.frontPageUrl || null,
+        backPage: initialData?.backPageUrl || null,
+      });
       setTableOfContents(initialData?.tableOfContents || []);
       setSelectedTagOption(
         initialData?.tag && availableTags.includes(initialData.tag)
@@ -235,24 +287,37 @@ export const BookFormModal = ({
   }, [pricePkr, discountValue, discountType, setValue]);
 
   // Handle cover image upload
-  const handleCoverUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const handleImageUpload = (file, fieldName) => {
+    const previewName = fieldName.replace("Image", "");
+    setFileUploadErrors((prev) => ({ ...prev, [fieldName]: null }));
 
+    if (file === null) {
+      setValue(fieldName, null);
+      setPreviews((prev) => ({ ...prev, [previewName]: null }));
+      return;
+    }
     if (!file.type.match("image.*")) {
-      setFileUploadError("Please upload an image file (PNG/JPG)");
+      setFileUploadErrors((prev) => ({
+        ...prev,
+        [fieldName]: "Please upload an image file (PNG/JPG)",
+      }));
       return;
     }
-
     if (file.size > 2 * 1024 * 1024) {
-      setFileUploadError("File size should be less than 2MB");
+      setFileUploadErrors((prev) => ({
+        ...prev,
+        [fieldName]: "File size should be less than 2MB",
+      }));
       return;
     }
 
-    setValue("coverImage", file);
-    setCoverPreview(URL.createObjectURL(file));
-    setFileUploadError(null);
+    setValue(fieldName, file);
+    setPreviews((prev) => ({
+      ...prev,
+      [previewName]: URL.createObjectURL(file),
+    }));
   };
+
   register("content", {
     validate: (value) =>
       (Array.isArray(value) && value.length > 0) ||
@@ -807,68 +872,12 @@ export const BookFormModal = ({
               </div>
 
               {/* Seventh Row - Cover Image */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Book Cover*
-                </label>
-                <div
-                  className={`flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md ${
-                    errors.coverImage ? "border-red-500" : "border-gray-300"
-                  }`}
-                >
-                  {coverPreview ? (
-                    <div className="relative">
-                      <img
-                        src={coverPreview}
-                        alt="Cover preview"
-                        className="h-48 object-contain"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCoverPreview(null);
-                          setValue("coverImage", null);
-                        }}
-                        className="absolute top-0 right-0 bg-red-500 rounded-full p-1 text-white"
-                      >
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 text-center">
-                      <div className="flex justify-center">
-                        <CloudArrowUpIcon className="h-12 w-12 text-gray-400" />
-                      </div>
-                      <div className="flex text-sm text-gray-600">
-                        <label
-                          htmlFor="cover-upload"
-                          className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-success hover:text-primary"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="cover-upload"
-                            type="file"
-                            accept="image/png, image/jpeg"
-                            className="sr-only"
-                            onChange={handleCoverUpload}
-                          />
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        PNG, JPG up to 2MB
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {fileUploadError && (
-                  <p className="mt-1 text-sm text-error">{fileUploadError}</p>
-                )}
-                {errors.coverImage && (
-                  <p className="mt-1 text-sm text-error">
-                    {errors.coverImage.message}
-                  </p>
-                )}
-              </div>
+              <ImageUploader
+                label="Book Cover*"
+                previewUrl={previews.cover}
+                onFileChange={(file) => handleImageUpload(file, "coverImage")}
+                error={fileUploadErrors.coverImage}
+              />
 
               {/* Eighth Row - Book Content (Text) */}
               {errors.content && (
@@ -880,6 +889,26 @@ export const BookFormModal = ({
                 content={watch("content")}
                 setContent={(cb) => setValue("content", cb(watch("content")))}
               />
+
+              {/* Front Page and Back Page --- */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ImageUploader
+                  label="Front Page"
+                  previewUrl={previews.frontPage}
+                  onFileChange={(file) =>
+                    handleImageUpload(file, "frontPageImage")
+                  }
+                  error={fileUploadErrors.frontPageImage}
+                />
+                <ImageUploader
+                  label="Back Page"
+                  previewUrl={previews.backPage}
+                  onFileChange={(file) =>
+                    handleImageUpload(file, "backPageImage")
+                  }
+                  error={fileUploadErrors.backPageImage}
+                />
+              </div>
 
               {/* Status and Featured toggle */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

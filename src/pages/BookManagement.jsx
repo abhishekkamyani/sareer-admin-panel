@@ -41,24 +41,8 @@ export const BookManagement = () => {
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: getCategories,
+    refetchOnWindowFocus: false,
   });
-
-  // const fetchBooks = () => {
-  //   const unsubscribe = onSnapshot(collection(db, "books"), (snapshot) => {
-  //     console.log("snapshot", snapshot.docs);
-
-  //     const booksData = snapshot.docs.map((doc) => ({
-  //       id: doc.id,
-  //       ...doc.data(),
-  //     }));
-  //     setBooks(booksData);
-  //   });
-  //   return unsubscribe;
-  // };
-  // useEffect(() => {
-  //   const unsubscribe = fetchBooks();
-  //   return () => unsubscribe();
-  // }, []);
 
   const {
     data: books,
@@ -67,9 +51,10 @@ export const BookManagement = () => {
   } = useQuery({
     queryKey: ["books"],
     queryFn: fetchBooks,
+    refetchOnWindowFocus: false,
   });
 
-  console.log("books", books);
+  // console.log("books", books);
 
   if (booksLoading) {
     return <Loader />;
@@ -80,19 +65,42 @@ export const BookManagement = () => {
       setIsLoading(true);
       let coverUrl = formData.coverUrl;
       let bookId = formData.id ?? null;
+      let frontPageUrl = formData.frontPageUrl;
+      let backPageUrl = formData.backPageUrl;
       let oldCategories = [];
 
-      // 1. Handle Cover Image Upload
-      if (formData.coverImage && typeof formData.coverImage !== "string") {
+      // --- MODIFICATION: Handle all image uploads efficiently in parallel ---
+      const uploadPromises = [];
+      const imageFields = ["coverImage", "frontPageImage", "backPageImage"];
+
+      imageFields.forEach((fieldName) => {
+        // Check if the field contains a new file object to upload
+        if (formData[fieldName] && typeof formData[fieldName] !== "string") {
+          uploadPromises.push(
+            uploadFileToFirebase(
+              formData[fieldName],
+              `book-assets/${Date.now()}_${formData[fieldName].name}`
+            ).then((result) => ({ fieldName, url: result.url })) // Return the field name with the URL
+          );
+        }
+      });
+
+      // If there are new images to upload, wait for all of them to finish
+      if (uploadPromises.length > 0) {
         try {
-          const result = await uploadFileToFirebase(formData.coverImage);
-          coverUrl = result.url;
+          const uploadResults = await Promise.all(uploadPromises);
+          // Assign the new URLs based on the results
+          uploadResults.forEach(({ fieldName, url }) => {
+            if (fieldName === "coverImage") coverUrl = url;
+            if (fieldName === "frontPageImage") frontPageUrl = url;
+            if (fieldName === "backPageImage") backPageUrl = url;
+          });
         } catch (error) {
-          console.error("Image upload failed:", error);
-          toast.error("Failed to upload cover image.", {
+          console.error("An image upload failed:", error);
+          toast.error("Failed to upload one or more images.", {
             style: { backgroundColor: "var(--color-error)", color: "white" },
           });
-          throw new Error("Failed to upload cover image");
+          throw new Error("Image upload failed");
         }
       }
 
@@ -125,6 +133,8 @@ export const BookManagement = () => {
         tag: formData.tag,
         keywords: formData.keywords,
         coverUrl,
+        frontPageUrl: frontPageUrl || null,
+        backPageUrl: backPageUrl || null,
         content: formData.content,
         tableOfContents: formData.tableOfContents,
         status: formData.status || "published",
@@ -248,7 +258,7 @@ export const BookManagement = () => {
       toast.success(`Book ${bookId ? "updated" : "added"} successfully!`, {
         style: {
           backgroundColor: "var(--color-success)",
-          color: "white", 
+          color: "white",
         },
       });
       return { success: true, bookId: newBookId };

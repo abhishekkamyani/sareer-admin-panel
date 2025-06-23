@@ -75,6 +75,7 @@ export const UserManagement = () => {
   } = useQuery({
     queryKey: ["books"],
     queryFn: fetchBooks,
+    refetchOnWindowFocus: false,
   });
 
   const getBookName = (bookId) => {

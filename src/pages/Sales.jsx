@@ -119,12 +119,14 @@ export const Sales = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["orders", filters],
     queryFn: () => fetchOrders(filters),
+    refetchOnWindowFocus: false,
   });
 
   // Fetch categories for filter
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
     queryFn: fetchCategories,
+    refetchOnWindowFocus: false,
   });
 
   // Filter orders based on search text
