@@ -8,8 +8,6 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  console.log("====currentUser====", currentUser)
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user && user.email === import.meta.env.VITE_FIREBASE_ADMIN_EMAIL) {

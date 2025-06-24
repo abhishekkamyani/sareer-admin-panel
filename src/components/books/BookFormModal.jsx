@@ -28,12 +28,7 @@ const fontCss = generateQuillFontCss();
 
 // --- QUILL TOOLBAR CONFIGURATIONS ---
 const minimalModules = {
-  toolbar: [
-    ["bold", "italic", "underline", "strike", "blockquote"],
-    [{ color: [] }],
-    [{ font: fontList }],
-    ["clean"],
-  ],
+  toolbar: [[{ align: [] }]],
 };
 
 const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
@@ -133,7 +128,7 @@ export const BookFormModal = ({
           id: initialData.id,
           name: parseRichText(initialData.name),
           writer: parseRichText(initialData.writer),
-          description: parseRichText(initialData.description),
+          description: initialData.description,
           standardCategoryNames: initialStandardCategoryNames,
           featuredCategoryNames: initialFeaturedCategoryNames,
           language: initialData.language || "English",
@@ -223,7 +218,7 @@ export const BookFormModal = ({
         id: initialData?.id, // Ensure ID is passed for editing context
         name: initialData ? parseRichText(initialData.name) : "",
         writer: initialData ? parseRichText(initialData.writer) : "",
-        description: initialData ? parseRichText(initialData.description) : "",
+        description: initialData ? initialData.description : "",
         content: initialData?.content || [],
         standardCategoryNames: initialStandardCategoryNames,
         featuredCategoryNames: initialFeaturedCategoryNames,
@@ -381,7 +376,6 @@ export const BookFormModal = ({
       ...data,
       name: stringifyRichText(data.name),
       writer: stringifyRichText(data.writer),
-      description: stringifyRichText(data.description),
       content: data.content.map((chapter) => ({
         ...chapter,
         body:
@@ -839,30 +833,16 @@ export const BookFormModal = ({
                 </div>
               </div>
 
-              {/* Sixth Row - Description */}
-              <div className="pb-8">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description*
                 </label>
-                <Controller
-                  name="description"
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <ReactQuill
-                      theme="snow"
-                      value={field.value}
-                      onChange={(content, delta, source, editor) =>
-                        field.onChange(editor.getContents())
-                      }
-                      modules={quillModules}
-                      className={`h-40 bg-white ${
-                        errors.description
-                          ? "border-red-500"
-                          : "border-gray-300"
-                      }`}
-                    />
-                  )}
+                <textarea
+                  rows={3}
+                  {...register("description", { required: "Required" })}
+                  className={`w-full rounded-md border ${
+                    errors.description ? "border-red-500" : "border-gray-300"
+                  } p-2 focus:ring-primary focus:border-primary`}
                 />
                 {errors.description && (
                   <p className="mt-1 text-sm text-error">

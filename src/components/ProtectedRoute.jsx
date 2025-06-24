@@ -5,7 +5,6 @@ import { Loader } from "./Loader"; // Assuming you have a loader component
 export default function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth(); // Destructure loading from the context
 
-  console.log("====Loading====", loading);
   // 1. If the auth state is still loading, show a loading indicator.
   // This prevents any premature redirects.
   if (loading) {
