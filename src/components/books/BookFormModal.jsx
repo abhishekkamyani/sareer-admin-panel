@@ -7,14 +7,6 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css"; // Import Quill styles
-import {
-  quillModules,
-  parseRichText,
-  generateQuillFontCss,
-  fontList,
-} from "../../utils/utility"; // Make sure this path is correct
 
 const availableTags = [
   "Bestseller",
@@ -24,12 +16,6 @@ const availableTags = [
   "Staff Pick",
 ];
 
-const fontCss = generateQuillFontCss();
-
-// --- QUILL TOOLBAR CONFIGURATIONS ---
-const minimalModules = {
-  toolbar: [[{ align: [] }]],
-};
 
 const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
   <div>
@@ -127,8 +113,8 @@ export const BookFormModal = ({
     defaultValues: initialData
       ? {
           id: initialData.id,
-          name: parseRichText(initialData.name),
-          writer: parseRichText(initialData.writer),
+          name: initialData.name,
+          writer: initialData.writer,
           description: initialData.description,
           standardCategoryNames: initialStandardCategoryNames,
           featuredCategoryNames: initialFeaturedCategoryNames,
@@ -395,9 +381,8 @@ export const BookFormModal = ({
 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
-      <style>{fontCss}</style>
       <div className="h-full w-full absolute bg-gray-700 opacity-80"></div>
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl h-[90vh] overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -818,7 +803,7 @@ export const BookFormModal = ({
                   Description*
                 </label>
                 <textarea
-                  rows={3}
+                  rows={5}
                   {...register("description", { required: "Required" })}
                   className={`w-full rounded-md border ${
                     errors.description ? "border-red-500" : "border-gray-300"

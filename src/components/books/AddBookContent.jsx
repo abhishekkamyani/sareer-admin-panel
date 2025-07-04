@@ -4,10 +4,14 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 // Import all the necessary utilities from your utility file
 import {
-  quillModules,
   parseRichText,
   generateQuillFontCss,
 } from "../../utils/utility"; // Make sure this path is correct
+
+// --- QUILL TOOLBAR CONFIGURATIONS ---
+const minimalModules = {
+  toolbar: [[{ align: [] }]],
+};
 
 export const AddBookContent = ({ content, setContent }) => {
   const [selectedChapter, setSelectedChapter] = useState(null);
@@ -88,7 +92,7 @@ export const AddBookContent = ({ content, setContent }) => {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 p-4 flex flex-col">
+      <div className="flex-1 p-4 flex flex-col overflow-auto">
         {current ? (
           <>
             <input
@@ -100,17 +104,19 @@ export const AddBookContent = ({ content, setContent }) => {
               placeholder="Chapter Heading"
               className="mb-4 p-2 border rounded"
             />
-            <ReactQuill
-              key={current.id}
-              theme="snow"
-              value={parseRichText(current.body)}
-              onChange={(contentValue, delta, source, editor) => {
-                updateChapter(current.id, "body", editor.getContents());
-              }}
-              modules={quillModules}
-              className="flex-1 mb-4"
-              style={{ display: "flex", flexDirection: "column" }}
-            />
+            <div className="overflow-y-auto">
+              <ReactQuill
+                key={current.id}
+                theme="snow"
+                value={parseRichText(current.body)}
+                onChange={(contentValue, delta, source, editor) => {
+                  updateChapter(current.id, "body", editor.getContents());
+                }}
+                modules={minimalModules}
+                className="flex-1 mb-4"
+                style={{ display: "flex", flexDirection: "column" }}
+              />
+            </div>
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setSelectedChapter(null)}
