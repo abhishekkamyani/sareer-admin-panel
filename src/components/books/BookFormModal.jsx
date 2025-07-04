@@ -88,6 +88,7 @@ export const BookFormModal = ({
   categories, // Renamed to allCategories for clarity, as it contains both types
   isLoading,
 }) => {
+
   // Separate categories into standard and featured upon receiving the prop
   const allStandardCategories =
     categories?.filter((cat) => cat.type === "standard") || [];
@@ -216,8 +217,8 @@ export const BookFormModal = ({
       reset({
         // Use reset to set all form values and reset form state
         id: initialData?.id, // Ensure ID is passed for editing context
-        name: initialData ? parseRichText(initialData.name) : "",
-        writer: initialData ? parseRichText(initialData.writer) : "",
+        name: initialData.name || "",
+        writer: initialData.writer || "",
         description: initialData ? initialData.description : "",
         content: initialData?.content || [],
         standardCategoryNames: initialStandardCategoryNames,
@@ -374,8 +375,6 @@ export const BookFormModal = ({
 
     const formData = {
       ...data,
-      name: stringifyRichText(data.name),
-      writer: stringifyRichText(data.writer),
       content: data.content.map((chapter) => ({
         ...chapter,
         body:
@@ -426,27 +425,17 @@ export const BookFormModal = ({
             >
               {/* First Row - Book Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Book Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Book Name*
                   </label>
-                  <Controller
-                    name="name"
-                    control={control}
-                    rules={{ required: "Required" }}
-                    render={({ field }) => (
-                      <ReactQuill
-                        theme="snow"
-                        value={field.value}
-                        onChange={(content, delta, source, editor) =>
-                          field.onChange(editor.getContents())
-                        }
-                        modules={minimalModules}
-                        className={`bg-white quill-short ${
-                          errors.name ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                    )}
+                  <input
+                    type="text"
+                    {...register("name", { required: "Required" })}
+                    className={`w-full rounded-md border ${
+                      errors.name ? "border-red-500" : "border-gray-300"
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   {errors.name && (
                     <p className="mt-1 text-sm text-error">
@@ -454,27 +443,18 @@ export const BookFormModal = ({
                     </p>
                   )}
                 </div>
+
+                {/* Writer Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Writer*
                   </label>
-                  <Controller
-                    name="writer"
-                    control={control}
-                    rules={{ required: "Required" }}
-                    render={({ field }) => (
-                      <ReactQuill
-                        theme="snow"
-                        value={field.value}
-                        onChange={(content, delta, source, editor) =>
-                          field.onChange(editor.getContents())
-                        }
-                        modules={minimalModules}
-                        className={`bg-white quill-short ${
-                          errors.writer ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                    )}
+                  <input
+                    type="text"
+                    {...register("writer", { required: "Required" })}
+                    className={`w-full rounded-md border ${
+                      errors.writer ? "border-red-500" : "border-gray-300"
+                    } p-2 focus:ring-primary focus:border-primary`}
                   />
                   {errors.writer && (
                     <p className="mt-1 text-sm text-error">
