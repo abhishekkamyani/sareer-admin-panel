@@ -1,24 +1,22 @@
 import { useState } from "react";
 import { PlusIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-// Import all the necessary utilities from your utility file
+import { Select } from "antd";
 import {
-  parseRichText,
-  generateQuillFontCss,
-} from "../../utils/utility"; // Make sure this path is correct
+  AlignCenterOutlined,
+  AlignLeftOutlined,
+  AlignRightOutlined,
+} from "@ant-design/icons";
 
-// --- QUILL TOOLBAR CONFIGURATIONS ---
-const minimalModules = {
-  toolbar: [[{ align: [] }]],
-};
+const alignmentOptions = [
+  { value: "left", label: "Left Align", icon: <AlignLeftOutlined /> },
+  { value: "center", label: "Center Align", icon: <AlignCenterOutlined /> },
+  { value: "right", label: "Right Align", icon: <AlignRightOutlined /> },
+];
 
 export const AddBookContent = ({ content, setContent }) => {
   const [selectedChapter, setSelectedChapter] = useState(null);
 
-  // Call the function to get the CSS string
-  const fontCss = generateQuillFontCss();
-
+  // Add new chapter
   const addChapter = () => {
     const newChapter = {
       id: Date.now(),
@@ -26,15 +24,16 @@ export const AddBookContent = ({ content, setContent }) => {
       body: "",
     };
     setContent((prev) => [...prev, newChapter]);
-    setSelectedChapter(newChapter.id);
   };
 
+  // Update chapter fields
   const updateChapter = (id, field, value) => {
     setContent((prev) =>
       prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     );
   };
 
+  // Delete chapter
   const deleteChapter = (id) => {
     setContent((prev) => prev.filter((item) => item.id !== id));
     if (selectedChapter === id) setSelectedChapter(null);
@@ -44,9 +43,6 @@ export const AddBookContent = ({ content, setContent }) => {
 
   return (
     <div className="flex gap-6 h-screen">
-      {/* Inject the CSS string into the style tag */}
-      <style>{fontCss}</style>
-
       {/* Table of Contents */}
       <div className="w-1/3 bg-gray-50 p-4 border-r overflow-auto">
         <div className="flex justify-between items-center mb-4">
@@ -60,63 +56,101 @@ export const AddBookContent = ({ content, setContent }) => {
           </button>
         </div>
         <div className="space-y-2">
-          {Array.isArray(content) &&
-            content.map((item) => (
-              <div
-                key={item.id}
-                className={`p-2 rounded cursor-pointer ${
-                  selectedChapter === item.id
-                    ? "bg-grey-300"
-                    : "hover:bg-grey-200"
-                }`}
-                onClick={() => setSelectedChapter(item.id)}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="flex-1 truncate">
-                    {item.heading || "Untitled Chapter"}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteChapter(item.id);
-                    }}
-                    className="text-error hover:text-red-700"
-                    type="button"
-                  >
-                    <XMarkIcon className="h-4 w-4" />
-                  </button>
-                </div>
+          {content.map((item) => (
+            <div
+              key={item.id}
+              className={`p-2 rounded cursor-pointer ${
+                selectedChapter === item.id
+                  ? "bg-grey-300"
+                  : "hover:bg-grey-200"
+              }`}
+              onClick={() => setSelectedChapter(item.id)}
+            >
+              <div className="flex justify-between items-center">
+                <span className="flex-1">
+                  {item.heading || "Untitled Chapter"}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteChapter(item.id);
+                  }}
+                  className="text-error hover:text-red-700"
+                  type="button"
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
               </div>
-            ))}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Editor */}
-      <div className="flex-1 p-4 flex flex-col overflow-auto">
+      <div className="flex-1 p-4 flex flex-col">
         {current ? (
           <>
-            <input
-              type="text"
-              value={current.heading}
-              onChange={(e) =>
-                updateChapter(current.id, "heading", e.target.value)
-              }
-              placeholder="Chapter Heading"
-              className="mb-4 p-2 border rounded"
-            />
-            <div className="overflow-y-auto">
-              <ReactQuill
-                key={current.id}
-                theme="snow"
-                value={parseRichText(current.body)}
-                onChange={(contentValue, delta, source, editor) => {
-                  updateChapter(current.id, "body", editor.getContents());
-                }}
-                modules={minimalModules}
-                className="flex-1 mb-4"
-                style={{ display: "flex", flexDirection: "column" }}
+            <div className=" ms-auto">
+              <label
+                htmlFor="alignment-select"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Text Alignment
+              </label>
+              <Select
+                id="alignment-select"
+                value={current?.alignment ?? "left"}
+                onChange={(value) =>
+                  updateChapter(current?.id, "alignment", value)
+                }
+                style={{ width: "100%" }}
+                aria-label="Text Alignment Selector"
+              >
+                {alignmentOptions.map((option) => (
+                  <Select.Option key={option.value} value={option.value}>
+                    <div className="flex items-center">
+                      <span className="mr-2">{option.icon}</span>
+                      {option.label}
+                    </div>
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+            <div className="w-full">
+              <label
+                htmlFor="heading"
+                className="text-sm font-medium text-gray-700 mb-2"
+              >
+                Chapter Heading
+              </label>
+              <input
+                type="text"
+                id="heading"
+                value={current.heading}
+                onChange={(e) =>
+                  updateChapter(current.id, "heading", e.target.value)
+                }
+                style={{ textAlign: current?.alignment ?? "left" }}
+                placeholder="Chapter Heading"
+                className="mb-4 w-full p-2 border rounded"
               />
             </div>
+            <label
+              htmlFor="content"
+              className="text-sm font-medium text-gray-700 mb-2"
+            >
+              Chapter Content
+            </label>
+            <textarea
+              value={current.body}
+              id="content"
+              onChange={(e) =>
+                updateChapter(current.id, "body", e.target.value)
+              }
+              className="flex-1 p-4 border rounded resize-none"
+              placeholder="Enter chapter content..."
+              style={{ textAlign: current?.alignment ?? "left" }}
+            />
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => setSelectedChapter(null)}

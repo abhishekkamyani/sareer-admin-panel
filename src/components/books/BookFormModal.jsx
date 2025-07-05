@@ -75,6 +75,9 @@ export const BookFormModal = ({
   isLoading,
 }) => {
 
+  console.log("===initialData===", initialData);
+  
+
   // Separate categories into standard and featured upon receiving the prop
   const allStandardCategories =
     categories?.filter((cat) => cat.type === "standard") || [];
