@@ -30,13 +30,13 @@ const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
         header: "Title",
         size: 200,
         filterVariant: "autocomplete",
-        Cell: ({ cell }) => <RenderRichText content={cell.getValue()} />,
+        // Cell: ({ cell }) => <RenderRichText content={cell.getValue()} />,
       },
       {
         accessorKey: "writer",
         header: "Author",
         size: 150,
-        Cell: ({ cell }) => <RenderRichText content={cell.getValue()} />,
+        // Cell: ({ cell }) => <RenderRichText content={cell.getValue()} />,
       },
       {
         accessorKey: "categories",
@@ -187,31 +187,3 @@ const BookTable = ({ books, onEdit, categories, onDelete, isLoading }) => {
 };
 
 export default BookTable;
-
-// Helper component to render Quill Delta as plain text
-const RenderRichText = ({ content }) => {
-  try {
-    // Step 1: Check if content is a valid string
-    if (typeof content !== "string" || !content) {
-      return null; // or return an empty string ''
-    }
-
-    // Step 2: Parse the JSON string into a Delta object
-    const delta = JSON.parse(content);
-
-    // Step 3: Check if it's a valid Quill Delta (has an 'ops' array)
-    if (!delta.ops || !Array.isArray(delta.ops)) {
-      // If not a Delta, it might be plain text that was stringified
-      // so we return the content as is.
-      return <span>{content}</span>;
-    }
-
-    // Step 4: Extract and join the plain text from each operation
-    const text = delta.ops.map((op) => op.insert).join("");
-
-    return <span>{text}</span>;
-  } catch (error) {
-    // If JSON.parse fails, it's likely already plain text. Display it directly.
-    return <span>{content}</span>;
-  }
-};
