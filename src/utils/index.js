@@ -1,4 +1,4 @@
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, Timestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db } from "./firebase";
 
@@ -70,13 +70,54 @@ export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
 
 export const fetchBooks = async () => {
     const snapshot = await getDocs(collection(db, "books"));
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(), // <-- This is what returns clean data
-        // releaseDate: Timestamp.fromDate(doc.data()?.releaseDate)
-        releaseDate: doc.data().releaseDate?.toDate(),
-        // releaseDate: doc.data()?.releaseDate?.toDate(),
-    }));
+    return snapshot.docs.map(doc => {
+        const data = doc.data(); // Get the document data once
+
+        // Manually pick only the fields you need for the list view
+        return {
+            id: doc.id,
+            coverUrl: data.coverUrl, // Or whatever the field name is
+            name: data.name,
+            writer: data.writer,
+            categories: data.categories,
+            language: data.language,
+            prices: data.prices,
+            status: data.status,
+            releaseDate: data.releaseDate?.toDate(), // Keep your date conversion
+        };
+    });
+};
+
+// export const fetchBooks = async () => {
+//     const snapshot = await getDocs(collection(db, "books"));
+//     return snapshot.docs.map(doc => ({
+//         id: doc.id,
+//         ...doc.data(), // <-- This is what returns clean data
+//         // releaseDate: Timestamp.fromDate(doc.data()?.releaseDate)
+//         releaseDate: doc.data().releaseDate?.toDate(),
+//         // releaseDate: doc.data()?.releaseDate?.toDate(),
+//     }));
+// };
+
+export const fetchBook = async (bookId) => {
+    if (!bookId) {
+        // Don't run if there's no ID
+        return null;
+    }
+    const bookDocRef = doc(db, "books", bookId);
+    const docSnap = await getDoc(bookDocRef);
+
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            releaseDate: data.releaseDate?.toDate(),
+        };
+    } else {
+        // Throw an error so react-query can catch it
+        throw new Error("Book not found!");
+    }
 };
 
 export const users = [

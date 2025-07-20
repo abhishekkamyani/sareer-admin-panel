@@ -7,6 +7,9 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchBook } from "../../utils";
+import { Loader } from "../Loader";
 
 const availableTags = [
   "Bestseller",
@@ -15,7 +18,6 @@ const availableTags = [
   "Award Winning",
   "Staff Pick",
 ];
-
 
 const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
   <div>
@@ -70,13 +72,24 @@ export const BookFormModal = ({
   isOpen,
   onClose,
   onSubmit,
-  initialData, // This now contains all categories with 'id' and 'type'
+  editingBookId,
+  // initialData, // This now contains all categories with 'id' and 'type'
   categories, // Renamed to allCategories for clarity, as it contains both types
   isLoading,
 }) => {
+  const {
+    data: initialData,
+    isLoading: initialDataLoading,
+    error,
+  } = useQuery({
+    queryKey: ["book", editingBookId],
+    queryFn: () => fetchBook(editingBookId),
+    refetchOnWindowFocus: false,
+    enabled: !!editingBookId, // The query will only run if bookId is a truthy value
+  });
 
+  console.log("===editingBookId===", editingBookId);
   console.log("===initialData===", initialData);
-  
 
   // Separate categories into standard and featured upon receiving the prop
   const allStandardCategories =
@@ -349,14 +362,6 @@ export const BookFormModal = ({
 
   // --- SUBMISSION HANDLER ---
   const processAndSubmit = (data) => {
-    // Helper to stringify rich text content (Delta objects) for Firestore
-    const stringifyRichText = (value) => {
-      if (value && typeof value === "object" && Array.isArray(value.ops)) {
-        return JSON.stringify(value);
-      }
-      return value; // Return as is if not a Delta object
-    };
-
     const combinedCategories = [
       ...(data.standardCategoryNames || []),
       ...(data.featuredCategoryNames || []),
@@ -376,8 +381,8 @@ export const BookFormModal = ({
         (item) => item.title && item.anchor
       ),
     };
-    delete formData.standardCategoryNames;
-    delete formData.featuredCategoryNames;
+    // delete formData.standardCategoryNames;
+    // delete formData.featuredCategoryNames;
 
     onSubmit(formData);
   };
@@ -398,6 +403,9 @@ export const BookFormModal = ({
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
+        <div className={`absolute w-full h-full`}>
+          {initialDataLoading && <Loader />}
+        </div>
 
         {/* Modal Content */}
         <div style={{ height: "85%" }}>
@@ -409,7 +417,9 @@ export const BookFormModal = ({
           >
             <form
               onSubmit={handleSubmit(processAndSubmit)}
-              className="space-y-4 h-full"
+              className={`space-y-4 h-full ${
+                initialDataLoading ? "opacity-35" : "opacity-100"
+              }`}
             >
               {/* First Row - Book Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

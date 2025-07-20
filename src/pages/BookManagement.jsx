@@ -32,7 +32,7 @@ import { Loader } from "../components/Loader";
 export const BookManagement = () => {
   // const [books, setBooks] = useState([]);
   // const [categories, setCategories] = useState([]);
-  const [editingBook, setEditingBook] = useState(null);
+  const [editingBookId, setEditingBookId] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -136,9 +136,11 @@ export const BookManagement = () => {
         frontPageUrl: frontPageUrl || null,
         backPageUrl: backPageUrl || null,
         content: formData.content,
-        tableOfContents: formData.tableOfContents,
+        // tableOfContents: formData.tableOfContents,
         status: formData.status || "published",
-        featured: formData.featured || false,
+        featured: formData.featuredCategoryNames?.length > 0 ? true : false,
+        standardCategoryNames: formData.standardCategoryNames,
+        featuredCategoryNames: formData.featuredCategoryNames,
         updatedAt: serverTimestamp(),
         ...(!bookId && { createdAt: serverTimestamp() }),
         ...(!bookId && {
@@ -170,20 +172,20 @@ export const BookManagement = () => {
 
       const addedCategories = bookId
         ? newCategories.filter(
-            (newCat) =>
-              !oldCategories.some(
-                (oldCat) => normalize(oldCat) === normalize(newCat)
-              )
-          )
+          (newCat) =>
+            !oldCategories.some(
+              (oldCat) => normalize(oldCat) === normalize(newCat)
+            )
+        )
         : newCategories;
 
       const removedCategories = bookId
         ? oldCategories.filter(
-            (oldCat) =>
-              !newCategories.some(
-                (newCat) => normalize(newCat) === normalize(oldCat)
-              )
-          )
+          (oldCat) =>
+            !newCategories.some(
+              (newCat) => normalize(newCat) === normalize(oldCat)
+            )
+        )
         : [];
 
       // Get all existing categories first
@@ -255,6 +257,7 @@ export const BookManagement = () => {
 
       // fetchBooks();
       queryClient.invalidateQueries(["books"]);
+      queryClient.invalidateQueries(["book", bookId]);
       toast.success(`Book ${bookId ? "updated" : "added"} successfully!`, {
         style: {
           backgroundColor: "var(--color-success)",
@@ -277,7 +280,7 @@ export const BookManagement = () => {
   };
   const handleSubmit = async (data) => {
     try {
-      if (editingBook) {
+      if (editingBookId) {
         await upsertBookToFirestore(data);
       } else {
         await upsertBookToFirestore(data);
@@ -287,11 +290,11 @@ export const BookManagement = () => {
       setIsLoading(false);
       console.error("Error submitting form: ", error);
     }
-    setEditingBook(null);
+    setEditingBookId(null);
     setIsModalOpened(false);
   };
   const handleEdit = (book) => {
-    setEditingBook(book);
+    setEditingBookId(book.id);
     setIsModalOpened(true);
   };
 
@@ -380,7 +383,7 @@ export const BookManagement = () => {
           </button>
           <button
             onClick={() => {
-              setEditingBook(null);
+              setEditingBookId(null);
               setIsModalOpened(true);
             }}
             className="inline-flex items-center cursor-pointer justify-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors"
@@ -425,11 +428,11 @@ export const BookManagement = () => {
         <BookFormModal
           isOpen={isModalOpened}
           onClose={() => {
-            setEditingBook(null);
+            setEditingBookId(null);
             setIsModalOpened(false);
           }}
           isLoading={isLoading}
-          initialData={editingBook}
+          editingBookId={editingBookId}
           categories={categoriesQuery.data}
           onSubmit={handleSubmit}
         />
