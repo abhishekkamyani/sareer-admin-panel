@@ -17,10 +17,10 @@ const db = admin.firestore();
 
 exports.sendCustomNotification = functions.https.onCall(async (data, context) => {
   console.log("--- New Notification Request Received ---");
-  const payload = data.data || data;
+  const payload = data.data;
   console.log("Raw payload received by function:", payload);
 
-  const { title, body, type, target, imageUrl, data: customData } = payload;
+  const { title, body, type, target, imageUrl, data: customData } = payload.data || payload;
 
   if (!title || !body || !type || !target) {
     console.error("Validation Failed! One or more required arguments are missing.");
@@ -38,7 +38,7 @@ exports.sendCustomNotification = functions.https.onCall(async (data, context) =>
       console.log("Target is 'buyers'. Applying filter for 'hasMadePurchase'.");
       usersQuery = usersQuery.where("hasMadePurchase", "==", true);
     }
-    
+
     const usersSnapshot = await usersQuery.get();
     console.log("Step 1a: Successfully fetched users snapshot.");
 
@@ -94,7 +94,7 @@ exports.sendCustomNotification = functions.https.onCall(async (data, context) =>
     if (uniqueTokens.length > 0) {
       const notificationPayload = { title, body };
       if (imageUrl) notificationPayload.imageUrl = imageUrl;
-      
+
       const apnsPayload = { payload: { aps: { 'mutable-content': 1 } } };
       if (imageUrl) apnsPayload.fcm_options = { image: imageUrl };
 
@@ -109,14 +109,14 @@ exports.sendCustomNotification = functions.https.onCall(async (data, context) =>
       };
 
       console.log("Step 4: Preparing to send FCM messages using sendEachForMulticast...");
-      
+
       // FIX: Using sendEachForMulticast which is the correct method for sending to a list of tokens.
       // This method is more robust and provides detailed results for each token.
       const response = await admin.messaging().sendEachForMulticast({
         tokens: uniqueTokens,
         ...messagePayload
       });
-      
+
       fcmSuccessCount = response.successCount;
       console.log(`FCM messages sent. Success: ${response.successCount}, Failure: ${response.failureCount}`);
     }
