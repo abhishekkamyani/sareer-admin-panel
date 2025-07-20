@@ -8,7 +8,7 @@ import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchBook } from "../../utils";
+import { fetchBook } from "../../utils/APIs";
 import { Loader } from "../Loader";
 
 const availableTags = [

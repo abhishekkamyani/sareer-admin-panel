@@ -35,7 +35,7 @@ import {
 } from "firebase/firestore";
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
-import { fetchBooks } from "../utils";
+import { fetchBooks } from "../utils/APIs";
 import { utils, writeFile } from "xlsx";
 
 const { RangePicker } = DatePicker;
@@ -88,7 +88,7 @@ export const UserManagement = () => {
     setLoading(true);
 
     // Start with base collection reference
-    let q = collection(db, "users");
+    let q = collection(db, "Users");
 
     // Apply filters if they exist
     const conditions = [];
@@ -173,7 +173,7 @@ export const UserManagement = () => {
   const saveEdit = async () => {
     try {
       const values = await editForm.validateFields();
-      await updateDoc(doc(db, "users", currentUser.id), values);
+      await updateDoc(doc(db, "Users", currentUser.id), values);
       message.success("User updated successfully");
       fetchUsers();
       setEditModalVisible(false);
@@ -186,7 +186,7 @@ export const UserManagement = () => {
   // Delete user
   const handleDelete = async (userId) => {
     try {
-      await deleteDoc(doc(db, "users", userId));
+      await deleteDoc(doc(db, "Users", userId));
       message.success("User deleted successfully");
       fetchUsers();
     } catch (error) {

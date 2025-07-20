@@ -24,8 +24,7 @@ import {
 } from "firebase/firestore";
 
 import { CategoryModal } from "../components/books/CategoryModal";
-import { fetchBooks, uploadFileToFirebase } from "../utils";
-import { getCategories } from "../utils/firebaseApis";
+import { fetchBooks, uploadFileToFirebase, getCategories } from "../utils/APIs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader } from "../components/Loader";
 

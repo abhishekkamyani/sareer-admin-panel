@@ -16,7 +16,6 @@ import dayjs from "dayjs";
 import ReactECharts from "echarts-for-react";
 
 import { useState } from "react";
-import { getCategories } from "../utils/firebaseApis";
 import {
   fetchActiveUsers,
   fetchNewReleases,
@@ -25,6 +24,7 @@ import {
   fetchSalesByCategory,
   fetchSalesData,
   fetchTotalBooks,
+  getCategories
 } from "../utils/APIs";
 import { Loader } from "../components/Loader";
 import { useNavigate } from "react-router-dom";

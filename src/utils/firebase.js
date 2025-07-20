@@ -3,7 +3,7 @@ import { addDoc, collection, Firestore, getFirestore, Timestamp } from "firebase
 import { getStorage } from "firebase/storage";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { getMessaging } from "firebase/messaging";
-import { orders, users } from ".";
+import { orders, users } from "./APIs";
 
 // require('dotenv').config()
 const env = import.meta.env;
