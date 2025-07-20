@@ -13,6 +13,7 @@ import {
   Modal,
   Badge,
   Spin,
+  Upload, // Import Upload component
 } from "antd";
 import {
   SendOutlined,
@@ -21,13 +22,13 @@ import {
   ExclamationCircleOutlined,
   UserOutlined,
   NotificationOutlined,
-  FileImageOutlined,
   TagOutlined,
   MessageOutlined,
+  UploadOutlined, // Import Upload icon
 } from "@ant-design/icons";
-// Import functions from your central API file
-import { fetchBooks, fetchNotificationHistory } from "../utils/APIs"; // Corrected path
-import { db } from "../utils/firebase"; // Used for recipient estimation
+// Import functions from your central API file, including the uploader
+import { fetchBooks, fetchNotificationHistory, uploadFileToFirebase } from "../utils/APIs";
+import { db } from "../utils/firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { collection, query, where, getCountFromServer } from "firebase/firestore";
 
@@ -35,7 +36,6 @@ import { collection, query, where, getCountFromServer } from "firebase/firestore
 const { TextArea } = Input;
 const { Option } = Select;
 
-// Component to manage and send notifications from the admin panel
 export const Notifications = () => {
   const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -45,38 +45,34 @@ export const Notifications = () => {
   const [userCount, setUserCount] = useState(0);
   const [sending, setSending] = useState(false);
   const [currentType, setCurrentType] = useState('');
+  const [imageFile, setImageFile] = useState(null); // State to hold the selected image file
 
   const functions = getFunctions();
   const sendCustomNotification = httpsCallable(functions, "sendCustomNotification");
 
-  // Main data fetching logic, now using centralized API functions
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      // Use API functions to fetch data
       const [fetchedBooks, fetchedHistory] = await Promise.all([
         fetchBooks(),
         fetchNotificationHistory(),
       ]);
-
       setBooks(fetchedBooks);
       setNotificationHistory(fetchedHistory);
     } catch (error) {
       console.error("Error loading initial data:", error);
-      message.error("Failed to load data. Please check console for details.");
+      message.error("Failed to load data.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Estimates the number of recipients based on the selected target audience
   const estimateRecipients = async (target) => {
     if (!target) {
       setUserCount(0);
       return;
     }
     try {
-      // Updated collection name to "Users" as per your feedback
       let q = query(collection(db, "Users"), where("fcmToken", "!=", null));
       if (target === "buyers") {
         q = query(collection(db, "Users"), where("hasMadePurchase", "==", true));
@@ -85,7 +81,6 @@ export const Notifications = () => {
       setUserCount(snapshot.data().count);
     } catch (error) {
       console.error("Error estimating recipients:", error);
-      // Silently fail on estimation, the backend will handle the real count.
     }
   };
 
@@ -104,26 +99,39 @@ export const Notifications = () => {
     setSending(true);
     try {
       const values = await form.getFieldsValue();
-      // Restored the full payload structure to match the Cloud Function's expectations
+      let uploadedImageUrl = null;
+
+      // Step 1: Upload image if one is selected
+      if (imageFile) {
+        message.loading({ content: 'Uploading image...', key: 'imageUpload' });
+        const uploadResult = await uploadFileToFirebase(imageFile, 'notification-images/');
+        uploadedImageUrl = uploadResult.url;
+        message.success({ content: 'Image uploaded successfully!', key: 'imageUpload' });
+      }
+
+      // Step 2: Construct the payload
       const payload = {
         title: values.title,
         body: values.body,
         type: values.type,
         target: values.target,
         data: { ...(values.type === 'newBook' && values.bookId && { bookId: values.bookId }) },
-        ...(values.imageUrl && { imageUrl: values.imageUrl }),
+        // Use the uploaded image URL if it exists
+        ...(uploadedImageUrl && { imageUrl: uploadedImageUrl }),
       };
       
       console.log("===payload===", payload);
 
-      const result = await sendCustomNotification(payload);
+      // Step 3: Send the notification
+      const result = await sendCustomNotification({ data: payload }); // Ensure payload is nested under 'data'
       message.success(result.data.message || `Notification job processed successfully.`);
       
       form.resetFields();
+      setImageFile(null); // Clear the selected file
       setUserCount(0);
-      loadInitialData(); // Refresh history
+      loadInitialData();
     } catch (error) {
-      console.error("Error calling Firebase Function:", error);
+      console.error("Error during submission:", error);
       message.error(`Failed to send notification: ${error.message}`);
     } finally {
       setSending(false);
@@ -163,7 +171,6 @@ export const Notifications = () => {
       dataIndex: "createdAt",
       key: "createdAt",
       render: (date) => (date ? new Date(date).toLocaleString() : "N/A"),
-      sorter: (a, b) => (a.createdAt || 0) - (b.createdAt || 0),
       width: 200,
     },
     {
@@ -202,18 +209,30 @@ export const Notifications = () => {
                   {Object.entries(targetOptions).map(([key, value]) => (<Option key={key} value={key}>{value}</Option>))}
                 </Select>
               </Form.Item>
-               <Form.Item name="title" label="Title" rules={[{ required: true, message: "Please enter a title!" },{ max: 80, message: "Title cannot exceed 80 characters." }]}>
-                <Input prefix={<TagOutlined className="site-form-item-icon" />} showCount maxLength={80} placeholder="Enter notification title" />
+               <Form.Item name="title" label="Title" rules={[{ required: true }]}>
+                <Input prefix={<TagOutlined />} showCount maxLength={80} placeholder="Enter notification title" />
               </Form.Item>
-              <Form.Item name="body" label="Body" rules={[{ required: true, message: "Please enter a message body!" }, { max: 250, message: "Body cannot exceed 250 characters." }]}>
-                <TextArea rows={4} showCount maxLength={250} placeholder="Enter the main content of the notification..."/>
+              <Form.Item name="body" label="Body" rules={[{ required: true }]}>
+                <TextArea rows={4} showCount maxLength={250} placeholder="Enter the main content..."/>
               </Form.Item>
-               <Form.Item name="imageUrl" label="Image URL (Optional)">
-                <Input prefix={<FileImageOutlined className="site-form-item-icon" />} placeholder="https://example.com/image.png" />
+              
+              {/* Image Upload Field */}
+              <Form.Item label="Image (Optional)">
+                <Upload
+                  listType="picture"
+                  maxCount={1}
+                  beforeUpload={(file) => {
+                    setImageFile(file); // Store the file in state
+                    return false; // Prevent automatic upload
+                  }}
+                  onRemove={() => setImageFile(null)} // Clear the file from state
+                >
+                  <Button icon={<UploadOutlined />}>Select Image</Button>
+                </Upload>
               </Form.Item>
               
               {currentType === 'newBook' && (
-                <Form.Item name="bookId" label="Link to Book" rules={[{ required: true, message: "Please select a book for this notification type." }]}>
+                <Form.Item name="bookId" label="Link to Book" rules={[{ required: true }]}>
                   <Select placeholder="Select a book" showSearch optionFilterProp="children" suffixIcon={<BookOutlined />}>
                     {books.map((b) => (<Option key={b.id} value={b.id}>{b.name}</Option>))}
                   </Select>

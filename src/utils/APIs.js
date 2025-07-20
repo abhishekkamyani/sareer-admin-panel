@@ -32,13 +32,13 @@ export const uploadFileToFirebase = async (file, path = 'book-covers/') => {
             const uploadTask = uploadBytesResumable(storageRef, file, metadata);
             let timedOut = false;
 
-            // Set timeout (30 seconds)
+            // Set timeout (5 minutes)
             const timeout = setTimeout(() => {
                 timedOut = true;
                 uploadTask.cancel();
                 console.log("error", error);
                 reject(new Error('Upload timed out after 30 seconds'));
-            }, 30000);
+            }, 60000);
 
             uploadTask.on('state_changed',
                 (snapshot) => {
