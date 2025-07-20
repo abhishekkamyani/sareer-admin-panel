@@ -1,7 +1,12 @@
 /**
- * To deploy this function:
+ * Firebase Cloud Function to send customized notifications.
+ *
+ * This version fixes the "sendToDevice is not a function" error by using the
+ * correct and more modern `sendEachForMulticast` method for sending FCM messages.
+ *
+ * To deploy:
  * 1. Replace the contents of your existing `functions/index.js` file with this code.
- * 2. Run `firebase deploy --only functions` from your project root.
+ * 2. Run `firebase deploy --only functions` from your project's root directory.
  */
 
 const functions = require("firebase-functions");
@@ -10,102 +15,128 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 const db = admin.firestore();
 
-exports.sendPushNotification = functions.https.onCall(async (data, context) => {
-  // Optional: Add admin role verification for security
-  // if (!context.auth || !context.auth.token.admin) {
-  //   throw new functions.https.HttpsError(
-  //     "permission-denied",
-  //     "Must be an administrative user to send notifications."
-  //   );
-  // }
+exports.sendCustomNotification = functions.https.onCall(async (data, context) => {
+  console.log("--- New Notification Request Received ---");
+  const payload = data.data || data;
+  console.log("Raw payload received by function:", payload);
 
-  const { message, type, target, bookId, scheduledDate } = data;
+  const { title, body, type, target, imageUrl, data: customData } = payload;
 
-  // --- 1. Construct the Base Firestore Query to Find Target Users ---
-  let usersQuery = db.collection("users");
-
-  // We add a defensive check to ensure 'target' is an array before using it.
-  if (Array.isArray(target) && target.length > 0) {
-    if (target.includes("Specific Book Buyers") && bookId) {
-      usersQuery = usersQuery.where(`purchasedBooks.${bookId}`, "==", true);
-    }
-
-    if (target.includes("Inactive Users")) {
-      const inactiveDate = new Date();
-      inactiveDate.setDate(inactiveDate.getDate() - 30);
-      usersQuery = usersQuery.where("lastActive", "<", inactiveDate);
-    }
-  } else {
-    // If target is missing or not an array, we can log it.
-    console.warn("Warning: 'target' array was missing, empty, or invalid. Proceeding without audience filters.");
+  if (!title || !body || !type || !target) {
+    console.error("Validation Failed! One or more required arguments are missing.");
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "The function must be called with 'title', 'body', 'type', and 'target' arguments."
+    );
   }
 
-  // --- 2. Fetch User Documents and Collect FCM Tokens ---
-  const userDocs = await usersQuery.get();
-  if (userDocs.empty) {
-    console.log("No users found for the selected target.");
-  }
+  try {
+    console.log("Validation Succeeded. Proceeding to Step 1: Fetching users...");
+    let usersQuery = db.collection("Users");
 
-  const tokens = [];
-  userDocs.forEach((doc) => {
-    const userData = doc.data();
-    if (userData.fcmTokens && Array.isArray(userData.fcmTokens)) {
-      tokens.push(...userData.fcmTokens);
+    if (target === "buyers") {
+      console.log("Target is 'buyers'. Applying filter for 'hasMadePurchase'.");
+      usersQuery = usersQuery.where("hasMadePurchase", "==", true);
     }
-  });
+    
+    const usersSnapshot = await usersQuery.get();
+    console.log("Step 1a: Successfully fetched users snapshot.");
 
-  const uniqueTokens = [...new Set(tokens)];
-  console.log(`Found ${uniqueTokens.length} unique device tokens to target.`);
+    if (usersSnapshot.empty) {
+      console.log("No users found for the selected target audience.");
+      return { success: true, message: "Request processed, but no users matched the criteria." };
+    }
 
-  // --- 3. Save the Notification to Firestore History ---
-  // **THE FIX IS HERE:** Provide default fallback values for any potentially undefined fields.
-  const notificationRecord = {
-    message: message || "No message content.", // Fallback for undefined message
-    type: type || "General", // Fallback for undefined type
-    target: target || ["Unknown"], 
-    bookId: bookId || null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    status: scheduledDate ? "scheduled" : (uniqueTokens.length > 0 ? "sent" : "processed"),
-    sentAt: scheduledDate ? new Date(scheduledDate) : admin.firestore.FieldValue.serverTimestamp(),
-    estimatedRecipients: uniqueTokens.length,
-    stats: {
-      successCount: 0,
-      failureCount: 0,
-    },
-  };
+    const userDocs = usersSnapshot.docs;
+    const recipientCount = userDocs.length;
+    console.log(`Found ${recipientCount} users to notify.`);
 
-  const notifRef = await db.collection("notifications").add(notificationRecord);
-  console.log("Notification record saved to Firestore with ID:", notifRef.id);
-
-  // --- 4. Send the Notification via FCM (if not scheduled for later) ---
-  if (uniqueTokens.length > 0 && !scheduledDate) {
-    const payload = {
-      notification: {
-        title: `E-Book Store: ${type || 'Notification'}`, // Use fallback for title too
-        body: message,
-      },
-      data: {
-        type: type || "General",
-        bookId: bookId || "",
-        screen: "/notifications",
-      },
+    const historyRecord = {
+      title,
+      body,
+      type,
+      target,
+      status: "processing",
+      recipientCount,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
+    const historyRef = await db.collection("notificationHistory").add(historyRecord);
+    console.log("Step 2: Created history record with ID:", historyRef.id);
 
-    console.log("Sending FCM message...");
-    const response = await admin.messaging().sendToDevice(uniqueTokens, payload);
+    const batch = db.batch();
+    const fcmTokens = [];
 
-    await notifRef.update({
-      "stats.successCount": response.successCount,
-      "stats.failureCount": response.failureCount,
+    userDocs.forEach((doc) => {
+      const user = doc.data();
+      const userId = doc.id;
+      const userNotifRef = db.collection("notifications").doc();
+      batch.set(userNotifRef, {
+        userId,
+        title,
+        body,
+        type,
+        imageUrl: imageUrl || null,
+        data: customData || {},
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        isRead: false,
+      });
+      if (user.fcmToken && typeof user.fcmToken === 'string') {
+        fcmTokens.push(user.fcmToken);
+      }
     });
 
-    console.log(`Successfully sent message to ${response.successCount} devices.`);
-    return { success: true, message: `Notification sent to ${response.successCount} users.` };
-  } else if (scheduledDate) {
-    console.log("Notification is scheduled. No message sent now.");
-    return { success: true, message: "Notification successfully scheduled." };
-  } else {
-    console.log("No tokens found, so no message sent.");
-    return { success: true, message: "Request processed, but no users to notify." };
+    await batch.commit();
+    console.log("Step 3: Successfully committed batch write.");
+
+    const uniqueTokens = [...new Set(fcmTokens)];
+    let fcmSuccessCount = 0;
+
+    if (uniqueTokens.length > 0) {
+      const notificationPayload = { title, body };
+      if (imageUrl) notificationPayload.imageUrl = imageUrl;
+      
+      const apnsPayload = { payload: { aps: { 'mutable-content': 1 } } };
+      if (imageUrl) apnsPayload.fcm_options = { image: imageUrl };
+
+      const androidPayload = {};
+      if (imageUrl) androidPayload.notification = { image: imageUrl };
+
+      const messagePayload = {
+        notification: notificationPayload,
+        data: { ...customData, type, click_action: "FLUTTER_NOTIFICATION_CLICK" },
+        apns: apnsPayload,
+        android: androidPayload,
+      };
+
+      console.log("Step 4: Preparing to send FCM messages using sendEachForMulticast...");
+      
+      // FIX: Using sendEachForMulticast which is the correct method for sending to a list of tokens.
+      // This method is more robust and provides detailed results for each token.
+      const response = await admin.messaging().sendEachForMulticast({
+        tokens: uniqueTokens,
+        ...messagePayload
+      });
+      
+      fcmSuccessCount = response.successCount;
+      console.log(`FCM messages sent. Success: ${response.successCount}, Failure: ${response.failureCount}`);
+    }
+
+    await historyRef.update({
+      status: "sent",
+      fcmSuccessCount: fcmSuccessCount,
+      fcmFailureCount: uniqueTokens.length - fcmSuccessCount,
+    });
+
+    return {
+      success: true,
+      message: `Notification sent to ${fcmSuccessCount} / ${recipientCount} users.`,
+    };
+  } catch (error) {
+    console.error("FATAL Error during function execution:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "An unexpected error occurred while sending the notification.",
+      error.message
+    );
   }
 });
