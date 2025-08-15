@@ -140,16 +140,18 @@ export const BookManagement = () => {
         featured: formData.featuredCategoryNames?.length > 0 ? true : false,
         standardCategoryNames: formData.standardCategoryNames,
         featuredCategoryNames: formData.featuredCategoryNames,
+        coupon: formData.coupon || { code: null, discountPercentage: 0 },
         updatedAt: serverTimestamp(),
         ...(!bookId && { createdAt: serverTimestamp() }),
-        ...(!bookId && {
-          stats: {
-            views: 0,
-            purchases: 0,
-            ratingsCount: 0,
-            averageRating: 0,
-          },
-        }),
+        // ...(!bookId && {
+        //   stats: {
+        //     views: 0,
+        //     purchases: 0,
+        //     ratingsCount: 0,
+        //     averageRating: 0,
+        //   },
+        // }
+        // ),
       };
 
       // 4. Create/Update Book Document
@@ -171,20 +173,20 @@ export const BookManagement = () => {
 
       const addedCategories = bookId
         ? newCategories.filter(
-          (newCat) =>
-            !oldCategories.some(
-              (oldCat) => normalize(oldCat) === normalize(newCat)
-            )
-        )
+            (newCat) =>
+              !oldCategories.some(
+                (oldCat) => normalize(oldCat) === normalize(newCat)
+              )
+          )
         : newCategories;
 
       const removedCategories = bookId
         ? oldCategories.filter(
-          (oldCat) =>
-            !newCategories.some(
-              (newCat) => normalize(newCat) === normalize(oldCat)
-            )
-        )
+            (oldCat) =>
+              !newCategories.some(
+                (newCat) => normalize(newCat) === normalize(oldCat)
+              )
+          )
         : [];
 
       // Get all existing categories first

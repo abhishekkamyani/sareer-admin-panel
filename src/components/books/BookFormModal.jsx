@@ -155,6 +155,10 @@ export const BookFormModal = ({
           content: initialData.content || [],
           tableOfContents: initialData.tableOfContents || [], // This is initialized from prop too
           status: initialData.status || "published",
+          couponCode: initialData.coupon?.code || "", // New
+          couponDiscountPercentage: Number(
+            initialData.coupon?.discountPercentage || 0
+          ), // New
         }
       : {
           name: "",
@@ -245,6 +249,10 @@ export const BookFormModal = ({
         coverUrl: initialData?.coverUrl || null,
         frontPageUrl: initialData.frontPageUrl || null,
         backPageUrl: initialData.backPageUrl || null,
+        couponCode: initialData?.coupon?.code || "",
+        couponDiscountPercentage: Number(
+          initialData?.coupon?.discountPercentage || 0
+        ),
       });
 
       setPreviews({
@@ -380,9 +388,15 @@ export const BookFormModal = ({
       tableOfContents: tableOfContents.filter(
         (item) => item.title && item.anchor
       ),
+      coupon: {
+        code: data.couponCode || null, // Handle optionality
+        discountPercentage: data.couponDiscountPercentage || 0,
+      },
     };
     // delete formData.standardCategoryNames;
     // delete formData.featuredCategoryNames;
+    delete formData.couponCode;
+    delete formData.couponDiscountPercentage;
 
     onSubmit(formData);
   };
@@ -696,6 +710,38 @@ export const BookFormModal = ({
                     Discounted Price: ₨
                     {watch("discountedPricePkr")?.toFixed(2) || "0.00"}
                   </p>
+                </div>
+
+                {/* New Coupon Code Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Coupon Code (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    {...register("couponCode")} // Register the new field
+                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                    placeholder="e.g., SAVE10"
+                  />
+                </div>
+
+                {/* New Coupon Discount Percentage Section */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Coupon Discount (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    {...register("couponDiscountPercentage", {
+                      min: { value: 0, message: "Must be ≥ 0" },
+                      max: { value: 100, message: "Must be ≤ 100" },
+                    })}
+                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                    placeholder="e.g., 10"
+                  />
                 </div>
 
                 {/* Preview Pages */}
