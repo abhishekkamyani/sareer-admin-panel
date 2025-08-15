@@ -287,26 +287,26 @@ export const UserManagement = () => {
         return <Tag color={color}>{status?.toUpperCase()}</Tag>;
       },
     },
-    {
-      title: "Books Purchased",
-      dataIndex: "purchasedBooks",
-      key: "purchasedBooks",
-      render: (books, record) =>
-        books?.length > 0 ? (
-          <Button
-            type="primary"
-            shape="round"
-            icon={<BookOutlined />}
-            onClick={() => showBooksModal(record)}
-          >
-            {books.length}
-          </Button>
-        ) : (
-          <Tag color="default">No purchases</Tag>
-        ),
-      sorter: (a, b) =>
-        (a.purchasedBooks?.length || 0) - (b.purchasedBooks?.length || 0),
-    },
+    // {
+    //   title: "Books Purchased",
+    //   dataIndex: "purchasedBooks",
+    //   key: "purchasedBooks",
+    //   render: (books, record) =>
+    //     books?.length > 0 ? (
+    //       <Button
+    //         type="primary"
+    //         shape="round"
+    //         icon={<BookOutlined />}
+    //         onClick={() => showBooksModal(record)}
+    //       >
+    //         {books.length}
+    //       </Button>
+    //     ) : (
+    //       <Tag color="default">No purchases</Tag>
+    //     ),
+    //   sorter: (a, b) =>
+    //     (a.purchasedBooks?.length || 0) - (b.purchasedBooks?.length || 0),
+    // },
 
     {
       title: "Actions",
