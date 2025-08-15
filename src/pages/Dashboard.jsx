@@ -1,54 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, Button, DatePicker, Table, Spin } from "antd";
+import { Card, Button, DatePicker, Table, Statistic, Row, Col } from "antd";
 import {
   BookOutlined,
   DollarOutlined,
-  StarOutlined,
   UserOutlined,
-  ShoppingCartOutlined,
-  UploadOutlined,
   FileTextOutlined,
   NotificationOutlined,
   BarChartOutlined,
-  LoadingOutlined,
+  ShoppingOutlined,
+  RiseOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
 import ReactECharts from "echarts-for-react";
-
-import { useState } from "react";
-import {
-  fetchActiveUsers,
-  fetchNewReleases,
-  fetchReadingAnalytics,
-  fetchRecentActivities,
-  fetchSalesByCategory,
-  fetchSalesData,
-  fetchTotalBooks,
-  getCategories
-} from "../utils/APIs";
+import { useState, useMemo } from "react";
+import { fetchOrders, fetchTotalBooks } from "../utils/APIs"; // Assuming APIs are in this file
 import { Loader } from "../components/Loader";
 import { useNavigate } from "react-router-dom";
 import { ReportModal } from "../components/ReportModal";
 
+dayjs.extend(isBetween);
 const { RangePicker } = DatePicker;
 
-// Firebase query functions
-
 export const Dashboard = () => {
-  const [dateRange, setDateRange] = useState([
-    dayjs().subtract(7, "day"),
-    dayjs(),
-  ]);
-
+  // Set initial dateRange to null to show all orders by default
+  const [dateRange, setDateRange] = useState(null);
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const navigate = useNavigate();
-
-  // Categories query
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: getCategories,
-    refetchOnWindowFocus: false,
-  });
 
   // Dashboard stats queries
   const { data: totalBooks, isLoading: isTotalBooksLoading } = useQuery({
@@ -57,217 +35,127 @@ export const Dashboard = () => {
     refetchOnWindowFocus: false,
   });
 
-  const { data: newReleases, isLoading: isNewReleaseLoading } = useQuery({
-    queryKey: ["newReleases"],
-    queryFn: fetchNewReleases,
+  // Fetch and transform orders data for use across the dashboard
+  const { data: orders = [], isLoading: isOrdersDataLoading } = useQuery({
+    queryKey: ["ordersData"],
+    queryFn: fetchOrders,
     refetchOnWindowFocus: false,
+    select: (data) =>
+      data.map((order) => ({
+        id: order.orderId,
+        ...order,
+        username: `${order.userInfo?.firstName} ${order.userInfo?.lastName}`,
+        orderDate: new Date(order.createdAt?.seconds * 1000),
+      })),
   });
 
-  const { data: salesData, isLoading: isSalesDataLoading } = useQuery({
-    queryKey: ["salesData"],
-    queryFn: fetchSalesData,
-    refetchOnWindowFocus: false,
-  });
+  // Process all dashboard data based on the selected date range
+  const processedData = useMemo(() => {
+    // If dateRange is set, filter orders; otherwise, use all orders.
+    const filteredOrders = dateRange
+      ? orders.filter((order) => {
+          const [startDate, endDate] = dateRange;
+          return dayjs(order.orderDate).isBetween(
+            startDate,
+            endDate,
+            null,
+            "[]"
+          );
+        })
+      : orders;
 
-  const { data: activeUsers, isLoading: isActiveUsersLoading } = useQuery({
-    queryKey: ["activeUsers"],
-    queryFn: fetchActiveUsers,
-    refetchOnWindowFocus: false,
-  });
+    const totalRevenue = filteredOrders.reduce(
+      (sum, order) => sum + order.total,
+      0
+    );
+    const totalOrdersCount = filteredOrders.length;
+    const avgOrderValue =
+      totalOrdersCount > 0 ? totalRevenue / totalOrdersCount : 0;
+    
+    const uniqueCustomerIds = new Set(filteredOrders.map(order => order.userId));
+    const uniqueCustomers = uniqueCustomerIds.size;
 
-  const { data: activities, isLoading: isActivitiesLoading } = useQuery({
-    queryKey: ["recentActivities"],
-    queryFn: fetchRecentActivities,
-    refetchOnWindowFocus: false,
-  });
-
-  // Category sales query (depends on categories)
-  const { data: categorySales, isLoading: isCategorySalesLoading } = useQuery({
-    queryKey: ["categorySales", categories?.map((cat) => cat.id).join(",")],
-    queryFn: () =>
-      fetchSalesByCategory(categories?.map((cat) => cat.name) || []),
-    refetchOnWindowFocus: false,
-
-    enabled: !!categories,
-  });
-
-  // Reading analytics query
-  const { data: readingAnalytics, isLoading: isReadingAnalyticsLoading } =
-    useQuery({
-      queryKey: ["readingAnalytics"],
-      queryFn: fetchReadingAnalytics,
-      refetchOnWindowFocus: false,
+    // Group sales by day for the trend chart
+    const salesByDay = {};
+    filteredOrders.forEach((order) => {
+      const date = dayjs(order.orderDate).format("YYYY-MM-DD");
+      salesByDay[date] = (salesByDay[date] || 0) + order.total;
     });
 
-  // Combine stats
-  const stats = {
-    totalBooks,
-    totalSalesPKR: salesData?.totalPKR || 0,
-    totalSalesUSD: salesData?.totalUSD || 0,
-    newReleases,
-    activeUsers,
-    totalCopiesSold: salesData?.totalCopies || 0,
-  };
+    const chartLabels = Object.keys(salesByDay).sort();
+    const chartData = chartLabels.map((label) => salesByDay[label]);
 
-  // Chart options
-  const salesByCategoryOption = {
-    title: {
-      text: "Sales Distribution by Category",
-      left: "center",
-      textStyle: {
-        color: "#333",
-        fontSize: 18,
-        fontWeight: "bold",
-      },
-    },
+    return {
+      filteredOrders,
+      totalRevenue,
+      totalOrdersCount,
+      avgOrderValue,
+      uniqueCustomers,
+      salesTrend: { labels: chartLabels, data: chartData },
+    };
+  }, [orders, dateRange]);
+
+  // Chart options for sales trend
+  const salesTrendOption = {
     tooltip: {
       trigger: "axis",
-      axisPointer: {
-        type: "shadow",
-      },
-      formatter: "{b}: <b>₨{c}</b>",
+      formatter: (params) =>
+        `<b>${params[0].name}</b><br/>Revenue: ₨${params[0].value.toLocaleString()}`,
     },
-    legend: {
-      data: ["Sales Revenue"],
-      bottom: 0,
-      textStyle: {
-        fontSize: 12,
-      },
-    },
-    grid: {
-      left: "3%",
-      right: "4%",
-      bottom: "15%",
-      containLabel: true,
-    },
+    grid: { left: "3%", right: "4%", bottom: "3%", containLabel: true },
     xAxis: {
       type: "category",
-      data: categorySales?.categories || [],
-      axisLabel: {
-        rotate: 30,
-        interval: 0,
-        textStyle: {
-          color: "#666",
-        },
-      },
-      axisLine: {
-        lineStyle: {
-          color: "#ddd",
-        },
-      },
-      axisTick: {
-        alignWithLabel: true,
-      },
+      boundaryGap: false,
+      data: processedData.salesTrend.labels,
     },
-    yAxis: {
-      type: "value",
-      name: "Revenue (PKR)",
-      nameTextStyle: {
-        padding: [0, 0, 0, 40],
-        color: "#636363",
-      },
-      axisLine: {
-        show: true,
-        lineStyle: {
-          color: "#ddd",
-        },
-      },
-      splitLine: {
-        lineStyle: {
-          type: "dashed",
-          color: "#eee",
-        },
-      },
-      axisLabel: {
-        formatter: "₨{value}",
-        color: "#666",
-      },
-    },
+    yAxis: { type: "value", axisLabel: { formatter: "₨{value}" } },
     series: [
       {
-        name: "Sales Revenue",
-        type: "bar",
-        barWidth: "60%",
-        data: categorySales?.sales || [],
-        itemStyle: {
-          color: function (params) {
-            // Color palette
-            const colorList = [
-              "#5470C6",
-              "#91CC75",
-              "#FAC858",
-              "#EE6666",
-              "#73C0DE",
-              "#3BA272",
-              "#FC8452",
-              "#9A60B4",
-              "#EA7CCC",
-            ];
-            return colorList[params.dataIndex % colorList.length];
-          },
-          borderRadius: [4, 4, 0, 0],
-          shadowColor: "rgba(0, 0, 0, 0.1)",
-          shadowBlur: 6,
-          shadowOffsetY: 3,
-        },
-        emphasis: {
-          itemStyle: {
-            shadowColor: "rgba(0, 0, 0, 0.3)",
-            shadowBlur: 10,
-            shadowOffsetY: 5,
-          },
-        },
-        label: {
-          show: true,
-          position: "top",
-          formatter: "₨{c}",
-          color: "#333",
-        },
+        name: "Revenue",
+        type: "line",
+        smooth: true,
+        data: processedData.salesTrend.data,
+        areaStyle: {},
+        itemStyle: { color: "#5470C6" },
       },
     ],
-    animationDuration: 1500,
-    animationEasing: "elasticOut",
   };
-  const readingAnalyticsOption = {
-    title: { text: "Reading Activity (Last 7 Days)" },
-    tooltip: { trigger: "axis" },
-    xAxis: {
-      type: "category",
-      data: Array.from({ length: 7 }, (_, i) =>
-        dayjs()
-          .subtract(6 - i, "day")
-          .format("ddd, MMM D")
+
+  // Table columns for recent orders
+  const orderColumns = [
+    { title: "Order #", dataIndex: "orderNumber", key: "orderNumber" },
+    { title: "Buyer", dataIndex: "username", key: "username" },
+    {
+      title: "Date",
+      dataIndex: "orderDate",
+      key: "date",
+      render: (date) => dayjs(date).format("DD MMM YYYY"),
+    },
+    {
+      title: "Amount",
+      dataIndex: "total",
+      key: "total",
+      render: (total) => `₨${total.toLocaleString()}`,
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => (
+        <span
+          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+            status === "completed"
+              ? "bg-green-100 text-green-800"
+              : "bg-yellow-100 text-yellow-800"
+          }`}
+        >
+          {status.toUpperCase()}
+        </span>
       ),
     },
-    yAxis: { type: "value", name: "Pages Read" },
-    series: [
-      {
-        name: "Pages Read",
-        type: "line",
-        data: readingAnalytics || Array(7).fill(0),
-        smooth: true,
-      },
-    ],
-  };
-
-  // Activities Table Columns
-  const activityColumns = [
-    { title: "Book Name", dataIndex: "bookName", key: "bookName" },
-    { title: "Action", dataIndex: "action", key: "action" },
-    { title: "Date", dataIndex: "date", key: "date" },
-    { title: "User", dataIndex: "user", key: "user" },
   ];
 
-  // Check if any query is loading
-  const isLoading = [
-    isTotalBooksLoading,
-    isNewReleaseLoading,
-    isSalesDataLoading,
-    isActiveUsersLoading,
-    isActivitiesLoading,
-    isCategorySalesLoading,
-    isReadingAnalyticsLoading,
-  ].some((query) => query === true);
+  const isLoading = isTotalBooksLoading || isOrdersDataLoading;
 
   if (isLoading) {
     return <Loader />;
@@ -275,145 +163,118 @@ export const Dashboard = () => {
 
   return (
     <div className="p-4 sm:p-6">
-      <h1 className="text-2xl font-bold text-primary mb-6">Dashboard</h1>
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+        <RangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          disabledDate={(current) => current && current > dayjs().endOf("day")}
+        />
+      </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <BookOutlined className="!text-primary-light text-2xl mr-3" />
-            <div>
-              <p className="text-grey-600">Total Books</p>
-              <p className="text-2xl font-semibold text-primary">
-                {stats.totalBooks}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <DollarOutlined className="!text-secondary text-2xl mr-3" />
-            <div>
-              <p className="text-grey-600">Total Sales</p>
-              <p className="text-2xl font-semibold text-primary">
-                ₨{stats.totalSalesPKR.toLocaleString()} / $
-                {stats.totalSalesUSD.toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <StarOutlined className="!text-secondary text-2xl mr-3" />
-            <div>
-              <p className="text-grey-600">New Releases</p>
-              <p className="text-2xl font-semibold text-primary">
-                {stats.newReleases}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <UserOutlined className="!text-primary-light text-2xl mr-3" />
-            <div>
-              <p className="text-grey-600">Active Users</p>
-              <p className="text-2xl font-semibold text-primary">
-                {stats.activeUsers}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card loading={isLoading} className="hover:shadow-md transition-shadow">
-          <div className="flex items-center">
-            <ShoppingCartOutlined className="!text-secondary text-2xl mr-3" />
-            <div>
-              <p className="text-grey-600">Total Copies Sold</p>
-              <p className="text-2xl font-semibold text-primary">
-                {stats.totalCopiesSold}
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={24} sm={12} md={8} lg={5}>
+          <Card>
+            <Statistic
+              title="Total Revenue"
+              value={processedData.totalRevenue}
+              precision={2}
+              valueStyle={{ color: "#3f8600" }}
+              prefix={
+                <span>
+                  <DollarOutlined style={{ marginRight: 8 }} />
+                  ₨
+                </span>
+              }
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5}>
+          <Card>
+            <Statistic
+              title="Total Orders"
+              value={processedData.totalOrdersCount}
+              valueStyle={{ color: "#d48806" }}
+              prefix={<ShoppingOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5}>
+          <Card>
+            <Statistic
+              title="Unique Customers"
+              value={processedData.uniqueCustomers}
+              prefix={<UserOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={5}>
+          <Card>
+            <Statistic
+              title="Avg. Order Value"
+              value={processedData.avgOrderValue}
+              precision={2}
+              valueStyle={{ color: "#3f8600" }}
+              prefix={
+                <span>
+                  <RiseOutlined style={{ marginRight: 8 }} />
+                  ₨
+                </span>
+              }
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8} lg={4}>
+          <Card>
+            <Statistic
+              title="Total Books"
+              value={totalBooks}
+              prefix={<BookOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       {/* Quick Links */}
       <div className="flex flex-wrap gap-3 mb-6">
         <Button
           onClick={() => navigate("/book-management")}
           icon={<FileTextOutlined />}
-          className="!bg-primary hover:!bg-primary-dark !border-primary hover:!border-primary-dark !text-white"
+          type="primary"
         >
           View Books
         </Button>
-
         <Button
           icon={<NotificationOutlined />}
           onClick={() => navigate("/notifications")}
-          className="!text-primary !border-primary hover:!bg-primary-light hover:!text-primary-dark"
         >
           Send Notification
         </Button>
         <Button
           icon={<BarChartOutlined />}
           onClick={() => setReportModalVisible(true)}
-          className="!text-primary !border-primary hover:!bg-primary-light hover:!text-primary-dark"
         >
           Generate Report
         </Button>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6">
-        <Card
-          title="Sales by Category"
-          className="!border-grey-200"
-          headStyle={{ borderBottomColor: "var(--color-grey-200)" }}
-        >
-          <ReactECharts
-            option={salesByCategoryOption}
-            style={{ height: 300, width: "100%" }}
-            lazyUpdate={true}
-            opts={{ renderer: "svg" }} // Better performance
-          />
-        </Card>
-        <Card
-          title="Reading Analytics"
-          className="!border-grey-200"
-          headStyle={{ borderBottomColor: "var(--color-grey-200)" }}
-        >
-          <ReactECharts
-            option={readingAnalyticsOption}
-            style={{ height: 300, width: "100%" }}
-          />
-        </Card>
-      </div>
+      {/* Chart */}
+      <Card title="Sales Trend" className="mb-6">
+        <ReactECharts
+          option={salesTrendOption}
+          style={{ height: 350, width: "100%" }}
+          opts={{ renderer: "svg" }}
+        />
+      </Card>
 
-      {/* Recent Activity */}
-      <Card
-        title="Recent Activity"
-        className="!border-grey-200"
-        headStyle={{ borderBottomColor: "var(--color-grey-200)" }}
-        extra={
-          <RangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            disabledDate={(current) =>
-              current && current > dayjs().endOf("day")
-            }
-            className="w-full sm:w-auto"
-          />
-        }
-      >
+      {/* Recent Orders */}
+      <Card title="Recent Orders">
         <Table
-          columns={activityColumns}
-          dataSource={activities}
+          columns={orderColumns}
+          dataSource={processedData.filteredOrders}
           loading={isLoading}
-          pagination={false}
+          pagination={{ pageSize: 5 }}
           rowKey="id"
           scroll={{ x: true }}
         />
