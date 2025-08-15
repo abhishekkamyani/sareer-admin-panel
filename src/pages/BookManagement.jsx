@@ -27,6 +27,7 @@ import { CategoryModal } from "../components/books/CategoryModal";
 import { fetchBooks, uploadFileToFirebase, getCategories } from "../utils/APIs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader } from "../components/Loader";
+import { CouponManagementModal } from "../components/books/CouponManagementModal";
 
 export const BookManagement = () => {
   // const [books, setBooks] = useState([]);
@@ -34,6 +35,7 @@ export const BookManagement = () => {
   const [editingBookId, setEditingBookId] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
+  const [isCouponModalOpened, setIsCouponModalOpened] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
 
@@ -383,6 +385,12 @@ export const BookManagement = () => {
             Manage Categories
           </button>
           <button
+            onClick={() => setIsCouponModalOpened(true)}
+            className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
+          >
+            Manage Coupons
+          </button>
+          <button
             onClick={() => {
               setEditingBookId(null);
               setIsModalOpened(true);
@@ -444,6 +452,12 @@ export const BookManagement = () => {
           onClose={() => setIsCategoryModalOpened(false)}
           existingCategories={categoriesQuery.data}
           isLoading={isLoading || categoriesQuery.isLoading}
+        />
+      )}
+      {isCouponModalOpened && (
+        <CouponManagementModal
+          isOpen={isCouponModalOpened}
+          onClose={() => setIsCouponModalOpened(false)}
         />
       )}
     </div>
