@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom";
-import { useState, useEffect, useRef } from "react"; // Import useRef
+import { useState, useEffect, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { CloudArrowUpIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import Select from "react-select";
@@ -7,7 +7,7 @@ import PerfectScrollbar from "react-perfect-scrollbar";
 import "react-perfect-scrollbar/dist/css/styles.css";
 import { AddBookContent } from "./AddBookContent";
 import dayjs from "dayjs";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { fetchBook } from "../../utils/APIs";
 import { Loader } from "../Loader";
 
@@ -42,17 +42,16 @@ const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
         </div>
       ) : (
         <div className="space-y-1 text-center">
-          <div className="flex justify-center">
-            <CloudArrowUpIcon className="h-12 w-12 text-gray-400" />
-          </div>
-          <div className="flex text-sm text-gray-600">
+          <CloudArrowUpIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <div className="flex text-sm text-gray-600 justify-center">
             <label
-              htmlFor={label.toLowerCase().replace(" ", "-")}
-              className="relative ml-3 cursor-pointer bg-white rounded-md font-medium text-success hover:text-primary"
+              htmlFor={label.toLowerCase().replace(/\s+/g, "-")}
+              className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none"
             >
               <span>Upload a file</span>
               <input
-                id={label.toLowerCase().replace(" ", "-")}
+                id={label.toLowerCase().replace(/\s+/g, "-")}
+                name={label.toLowerCase().replace(/\s+/g, "-")}
                 type="file"
                 accept="image/png, image/jpeg"
                 className="sr-only"
@@ -64,7 +63,7 @@ const ImageUploader = ({ label, previewUrl, onFileChange, error }) => (
         </div>
       )}
     </div>
-    {error && <p className="mt-1 text-sm text-error">{error}</p>}
+    {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
   </div>
 );
 
@@ -73,48 +72,23 @@ export const BookFormModal = ({
   onClose,
   onSubmit,
   editingBookId,
-  // initialData, // This now contains all categories with 'id' and 'type'
-  categories, // Renamed to allCategories for clarity, as it contains both types
+  categories,
   isLoading,
 }) => {
-  const {
-    data: initialData,
-    isLoading: initialDataLoading,
-    error,
-  } = useQuery({
+  const { data: initialData, isLoading: initialDataLoading } = useQuery({
     queryKey: ["book", editingBookId],
     queryFn: () => fetchBook(editingBookId),
+    enabled: !!editingBookId,
     refetchOnWindowFocus: false,
-    enabled: !!editingBookId, // The query will only run if bookId is a truthy value
   });
 
-  console.log("===editingBookId===", editingBookId);
-  console.log("===initialData===", initialData);
+  console.log("editingBookId", editingBookId);
+  console.log("initialData", initialData);
 
-  // Separate categories into standard and featured upon receiving the prop
   const allStandardCategories =
     categories?.filter((cat) => cat.type === "standard") || [];
   const allFeaturedCategories =
     categories?.filter((cat) => cat.type === "featured") || [];
-
-  // Helper to process initial categories into standard and featured names
-  const getInitialCategoryNames = (data) => {
-    if (!data || !data.categories || !Array.isArray(data.categories)) {
-      return { standardCategoryNames: [], featuredCategoryNames: [] };
-    }
-
-    const initialBookCategoryNames = data.categories;
-    const initialStandardCategoryNames = initialBookCategoryNames.filter(
-      (name) => allStandardCategories.some((cat) => cat.name === name)
-    );
-    const initialFeaturedCategoryNames = initialBookCategoryNames.filter(
-      (name) => allFeaturedCategories.some((cat) => cat.name === name)
-    );
-    return { initialStandardCategoryNames, initialFeaturedCategoryNames };
-  };
-
-  const { initialStandardCategoryNames, initialFeaturedCategoryNames } =
-    getInitialCategoryNames(initialData);
 
   const {
     register,
@@ -123,200 +97,129 @@ export const BookFormModal = ({
     setValue,
     control,
     formState: { errors },
-    reset, // Import reset function from useForm
+    reset,
   } = useForm({
-    // Conditionally set defaultValues based on initialData presence
-    defaultValues: initialData
-      ? {
-          id: initialData.id,
-          name: initialData.name,
-          writer: initialData.writer,
-          description: initialData.description,
-          standardCategoryNames: initialStandardCategoryNames,
-          featuredCategoryNames: initialFeaturedCategoryNames,
-          language: initialData.language || "English",
-          releaseDate: dayjs(
-            initialData.releaseDate?.toDate
-              ? initialData.releaseDate.toDate()
-              : initialData.releaseDate
-          ).format("YYYY-MM-DD"),
-          pricePkr: Number(initialData.prices?.pkr || 0),
-          priceUsd: Number(initialData.prices?.usd || 0),
-          discountType: initialData.discount?.type || "percentage",
-          discountValue: Number(initialData.discount?.value || 0),
-          contentRestriction: Number(initialData.contentRestriction || 5),
-          tags: initialData.tags || [],
-          tag: initialData.tag || "",
-          keywords: initialData.keywords || [],
-          coverUrl: initialData?.coverUrl || null,
-          frontPageUrl: initialData.frontPageUrl || null,
-          backPageUrl: initialData.backPageUrl || null,
-          // coverImage is handled by state/preview, not directly in form data for initial load
-          content: initialData.content || [],
-          tableOfContents: initialData.tableOfContents || [], // This is initialized from prop too
-          status: initialData.status || "published",
-          couponCode: initialData.coupon?.code || "", // New
-          couponDiscountPercentage: Number(
-            initialData.coupon?.discountPercentage || 0
-          ), // New
-        }
-      : {
-          name: "",
-          writer: "",
-          description: "",
-          standardCategoryNames: [],
-          featuredCategoryNames: [],
-          language: "English",
-          releaseDate: "",
-          pricePkr: 0,
-          priceUsd: 0,
-          discountType: "percentage",
-          discountValue: 0,
-          tags: [],
-          tag: "",
-          keywords: [],
-          coverImage: null,
-          frontPageUrl: null,
-          backPageUrl: null,
-          contentRestriction: 5,
-          content: [],
-          tableOfContents: [],
-          status: "published",
-        },
+    defaultValues: {
+      content: [],
+      standardCategoryNames: [],
+      featuredCategoryNames: [],
+      keywords: [],
+    },
   });
 
-  // Initialize with initialData
   const [previews, setPreviews] = useState({
-    cover: initialData?.coverUrl || null,
-    frontPage: initialData?.frontPageUrl || null,
-    backPage: initialData?.backPageUrl || null,
+    cover: null,
+    frontPage: null,
+    backPage: null,
   });
   const [fileUploadErrors, setFileUploadErrors] = useState({});
-  const [tableOfContents, setTableOfContents] = useState(
-    initialData?.tableOfContents || []
-  ); // Initialize with initialData
-  const discountType = watch("discountType");
-  const pricePkr = watch("pricePkr");
-  const discountValue = watch("discountValue");
-  const [selectedTagOption, setSelectedTagOption] = useState(
-    initialData?.tag && availableTags.includes(initialData.tag)
-      ? initialData.tag
-      : "custom"
-  ); // Initialize with initialData
+  const [selectedTagOption, setSelectedTagOption] = useState("custom");
+  const lastLoadedBookIdRef = useRef(null);
 
-  // Ref to track the ID of the last book whose data was loaded into the form
-  const lastLoadedBookIdRef = useRef(initialData?.id);
-
-  // This useEffect will reset the form only when initialData.id changes (i.e., a different book is being edited)
-  // or when the modal is opened for the first time for a new book (initialData becomes null initially).
   useEffect(() => {
-    // Check if initialData has changed (e.g., editing a different book)
-    // Or if we are switching from editing to adding a new book (initialData becomes null)
-    const isDifferentBook = initialData?.id !== lastLoadedBookIdRef.current;
-    const isOpeningForNewBook =
-      isOpen && !initialData && lastLoadedBookIdRef.current !== undefined; // lastLoadedBookIdRef.current !== undefined prevents initial run on mount
-
-    if (isDifferentBook || isOpeningForNewBook) {
-      const { initialStandardCategoryNames, initialFeaturedCategoryNames } =
-        getInitialCategoryNames(initialData);
-
-      reset({
-        // Use reset to set all form values and reset form state
-        id: initialData?.id, // Ensure ID is passed for editing context
-        name: initialData.name || "",
-        writer: initialData.writer || "",
-        description: initialData ? initialData.description : "",
-        content: initialData?.content || [],
-        standardCategoryNames: initialStandardCategoryNames,
-        featuredCategoryNames: initialFeaturedCategoryNames,
-        language: initialData?.language || "English",
-        releaseDate: initialData?.releaseDate
-          ? dayjs(
-              initialData.releaseDate.toDate
-                ? initialData.releaseDate.toDate()
-                : initialData.releaseDate
-            ).format("YYYY-MM-DD")
-          : "",
-        pricePkr: Number(initialData?.prices?.pkr || 0),
-        priceUsd: Number(initialData?.prices?.usd || 0),
-        discountType: initialData?.discount?.type || "percentage",
-        discountValue: Number(initialData?.discount?.value || 0),
-        contentRestriction: Number(initialData?.contentRestriction || 5),
-        tags: initialData?.tags || [],
-        tag: initialData?.tag || "",
-        keywords: initialData?.keywords || [],
-        status: initialData?.status || "published",
-        coverUrl: initialData?.coverUrl || null,
-        frontPageUrl: initialData.frontPageUrl || null,
-        backPageUrl: initialData.backPageUrl || null,
-        couponCode: initialData?.coupon?.code || "",
+    if (
+      editingBookId &&
+      initialData &&
+      initialData.id !== lastLoadedBookIdRef.current
+    ) {
+      const formattedData = {
+        ...initialData,
+        releaseDate: dayjs(
+          initialData.releaseDate?.toDate
+            ? initialData.releaseDate.toDate()
+            : initialData.releaseDate
+        ).format("YYYY-MM-DD"),
+        pricePkr: Number(initialData.prices?.pkr || 0),
+        priceUsd: Number(initialData.prices?.usd || 0),
+        discountType: initialData.discount?.type || "percentage",
+        discountValue: Number(initialData.discount?.value || 0),
+        contentRestriction: Number(initialData.contentRestriction || 5),
+        couponCode: initialData.coupon?.code || "",
         couponDiscountPercentage: Number(
-          initialData?.coupon?.discountPercentage || 0
+          initialData.coupon?.discountPercentage || 0
         ),
-      });
-
+        standardCategoryNames: initialData.standardCategoryNames || [],
+        featuredCategoryNames: initialData.featuredCategoryNames || [],
+        content: initialData.content || [],
+        tag: initialData.tag || "",
+      };
+      reset(formattedData);
       setPreviews({
-        cover: initialData?.coverUrl || null,
-        frontPage: initialData?.frontPageUrl || null,
-        backPage: initialData?.backPageUrl || null,
+        cover: initialData.coverUrl,
+        frontPage: initialData.frontPageUrl,
+        backPage: initialData.backPageUrl,
       });
-      setTableOfContents(initialData?.tableOfContents || []);
       setSelectedTagOption(
-        initialData?.tag && availableTags.includes(initialData.tag)
+        initialData.tag && availableTags.includes(initialData.tag)
           ? initialData.tag
           : "custom"
       );
-
-      // Update the ref to the current book's ID
-      lastLoadedBookIdRef.current = initialData?.id;
-    } else if (!isOpen && lastLoadedBookIdRef.current !== null) {
-      // When modal closes, and it was previously editing a book, reset ref to null
-      // This helps 'isOpeningForNewBook' trigger correctly next time if 'Add Book' is clicked.
+      lastLoadedBookIdRef.current = initialData.id;
+    } else if (!editingBookId && lastLoadedBookIdRef.current !== null) {
+      reset({
+        name: "",
+        writer: "",
+        description: "",
+        standardCategoryNames: [],
+        featuredCategoryNames: [],
+        language: "English",
+        releaseDate: "",
+        pricePkr: 0,
+        priceUsd: 0,
+        discountType: "percentage",
+        discountValue: 0,
+        tags: [],
+        tag: "",
+        keywords: [],
+        coverImage: null,
+        frontPageUrl: null,
+        backPageUrl: null,
+        contentRestriction: 5,
+        content: [],
+        status: "published",
+        couponCode: "",
+        couponDiscountPercentage: 0,
+      });
+      setPreviews({ cover: null, frontPage: null, backPage: null });
+      setSelectedTagOption("custom");
       lastLoadedBookIdRef.current = null;
     }
-  }, [
-    initialData,
-    isOpen,
-    reset,
-    allStandardCategories,
-    allFeaturedCategories,
-  ]); // Keep initialData as dependency for object identity check
+  }, [editingBookId, initialData, reset]);
 
-  // Calculate discounted price
+  const pricePkr = watch("pricePkr");
+  const discountValue = watch("discountValue");
+  const discountType = watch("discountType");
+
   useEffect(() => {
-    if (discountType === "percentage") {
-      const discountAmount = (pricePkr * discountValue) / 100;
-      setValue("discountedPricePkr", pricePkr - discountAmount);
-    } else {
-      setValue("discountedPricePkr", pricePkr - discountValue);
-    }
+    const pkr = parseFloat(pricePkr) || 0;
+    const val = parseFloat(discountValue) || 0;
+    const discountAmount =
+      discountType === "percentage" ? (pkr * val) / 100 : val;
+    setValue("discountedPricePkr", pkr - discountAmount);
   }, [pricePkr, discountValue, discountType, setValue]);
 
-  // Handle cover image upload
   const handleImageUpload = (file, fieldName) => {
     const previewName = fieldName.replace("Image", "");
     setFileUploadErrors((prev) => ({ ...prev, [fieldName]: null }));
-
-    if (file === null) {
+    if (!file) {
       setValue(fieldName, null);
       setPreviews((prev) => ({ ...prev, [previewName]: null }));
       return;
     }
-    if (!file.type.match("image.*")) {
+    if (!file.type.startsWith("image/")) {
       setFileUploadErrors((prev) => ({
         ...prev,
-        [fieldName]: "Please upload an image file (PNG/JPG)",
+        [fieldName]: "Please upload an image file.",
       }));
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
       setFileUploadErrors((prev) => ({
         ...prev,
-        [fieldName]: "File size should be less than 2MB",
+        [fieldName]: "File size must be under 2MB.",
       }));
       return;
     }
-
     setValue(fieldName, file);
     setPreviews((prev) => ({
       ...prev,
@@ -324,16 +227,9 @@ export const BookFormModal = ({
     }));
   };
 
-  register("content", {
-    validate: (value) =>
-      (Array.isArray(value) && value.length > 0) ||
-      "At least one chapter is required.",
-  });
-  const languages = ["English", "Urdu"];
+  const keywords = watch("keywords", []);
 
-  const keywords = watch("keywords") || [];
-
-  const handleKeyDown = (e) => {
+  const handleKeywordsKeyDown = (e) => {
     if (["Enter", ","].includes(e.key)) {
       e.preventDefault();
       const value = e.target.value.trim();
@@ -344,31 +240,13 @@ export const BookFormModal = ({
     }
   };
 
-  const handleBlur = (e) => {
-    const value = e.target.value.trim();
-    if (value && !keywords.includes(value)) {
-      setValue("keywords", [...keywords, value]);
-      e.target.value = "";
-    }
+  const removeKeyword = (indexToRemove) => {
+    setValue(
+      "keywords",
+      keywords.filter((_, index) => index !== indexToRemove)
+    );
   };
 
-  const removeKeyword = (index) => {
-    const newKeywords = [...keywords];
-    newKeywords.splice(index, 1);
-    setValue("keywords", newKeywords);
-  };
-
-  if (!isOpen) return null;
-
-  const submitState = isLoading
-    ? initialData
-      ? "Updating..."
-      : "Saving..."
-    : initialData
-    ? "Update Book"
-    : "Add Book";
-
-  // --- SUBMISSION HANDLER ---
   const processAndSubmit = (data) => {
     const combinedCategories = [
       ...(data.standardCategoryNames || []),
@@ -377,38 +255,33 @@ export const BookFormModal = ({
 
     const formData = {
       ...data,
-      content: data.content.map((chapter) => ({
-        ...chapter,
-        body:
-          typeof chapter.body === "object"
-            ? JSON.stringify(chapter.body)
-            : chapter.body,
-      })),
+      id: editingBookId,
       categories: combinedCategories,
-      tableOfContents: tableOfContents.filter(
-        (item) => item.title && item.anchor
-      ),
       coupon: {
-        code: data.couponCode || null, // Handle optionality
+        code: data.couponCode || null,
         discountPercentage: data.couponDiscountPercentage || 0,
       },
     };
-    // delete formData.standardCategoryNames;
-    // delete formData.featuredCategoryNames;
-    delete formData.couponCode;
-    delete formData.couponDiscountPercentage;
-
     onSubmit(formData);
   };
 
+  if (!isOpen) return null;
+
+  const submitState = isLoading
+    ? editingBookId
+      ? "Updating..."
+      : "Saving..."
+    : editingBookId
+    ? "Update Book"
+    : "Add Book";
+
   return ReactDOM.createPortal(
     <div className="fixed inset-0 z-[999] flex items-center justify-center">
-      <div className="h-full w-full absolute bg-gray-700 opacity-80"></div>
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl h-[90vh] overflow-hidden">
-        {/* Modal Header */}
+      <div className="absolute inset-0 bg-gray-700 opacity-80"></div>
+      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="text-lg font-semibold text-gray-900">
-            {initialData ? "Edit Book" : "Add New Book"}
+            {editingBookId ? "Edit Book" : "Add New Book"}
           </h3>
           <button
             onClick={onClose}
@@ -417,68 +290,55 @@ export const BookFormModal = ({
             <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
-        <div className={`absolute w-full h-full`}>
-          {initialDataLoading && <Loader />}
-        </div>
 
-        {/* Modal Content */}
-        <div style={{ height: "85%" }}>
-          <PerfectScrollbar
-            className="p-6 overflow-hidden"
-            options={{
-              suppressScrollX: true,
-            }}
-          >
+        {initialDataLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 z-10">
+            <Loader />
+          </div>
+        )}
+
+        <div className="flex-grow overflow-hidden">
+          <PerfectScrollbar options={{ suppressScrollX: true }}>
             <form
               onSubmit={handleSubmit(processAndSubmit)}
-              className={`space-y-4 h-full ${
-                initialDataLoading ? "opacity-35" : "opacity-100"
+              className={`p-6 space-y-6 ${
+                initialDataLoading ? "opacity-50" : ""
               }`}
             >
-              {/* First Row - Book Info */}
+              {/* --- Row 1: Book Info --- */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Book Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Book Name*
                   </label>
                   <input
-                    type="text"
-                    {...register("name", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.name ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                    {...register("name", {
+                      required: "Book name is required.",
+                    })}
+                    className="w-full form-input"
                   />
                   {errors.name && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.name.message}
-                    </p>
+                    <p className="form-error">{errors.name.message}</p>
                   )}
                 </div>
-
-                {/* Writer Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Writer*
                   </label>
                   <input
-                    type="text"
-                    {...register("writer", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.writer ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                    {...register("writer", {
+                      required: "Writer name is required.",
+                    })}
+                    className="w-full form-input"
                   />
                   {errors.writer && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.writer.message}
-                    </p>
+                    <p className="form-error">{errors.writer.message}</p>
                   )}
                 </div>
               </div>
 
-              {/* Second Row - Category, Language, Date */}
+              {/* --- Row 2: Categories & Language --- */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Standard Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Standard Categories*
@@ -493,39 +353,24 @@ export const BookFormModal = ({
                       <Select
                         {...field}
                         isMulti
-                        options={allStandardCategories.map((cat) => ({
-                          value: cat.name,
-                          label: cat.name,
+                        options={allStandardCategories.map((c) => ({
+                          value: c.name,
+                          label: c.name,
                         }))}
-                        value={
-                          field.value?.map((name) => ({
-                            value: name,
-                            label: name,
-                          })) || []
+                        value={field.value.map((v) => ({ value: v, label: v }))}
+                        onChange={(selected) =>
+                          field.onChange(selected.map((s) => s.value))
                         }
-                        onChange={(selected) => {
-                          const selectedValues = selected.map(
-                            (item) => item.value
-                          );
-                          field.onChange(selectedValues);
-                        }}
-                        className={`react-select-container ${
-                          errors.standardCategoryNames
-                            ? "react-select--error"
-                            : ""
-                        }`}
                         classNamePrefix="react-select"
                       />
                     )}
                   />
                   {errors.standardCategoryNames && (
-                    <p className="mt-1 text-sm text-error">
+                    <p className="form-error">
                       {errors.standardCategoryNames.message}
                     </p>
                   )}
                 </div>
-
-                {/* Featured Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Featured Categories (Max 3)
@@ -534,148 +379,104 @@ export const BookFormModal = ({
                     name="featuredCategoryNames"
                     control={control}
                     rules={{
-                      validate: (value) => {
-                        return (
-                          (value && value.length <= 3) ||
-                          "You can select a maximum of 3 featured categories."
-                        );
-                      },
+                      validate: (v) =>
+                        !v || v.length <= 3 || "Max 3 featured categories.",
                     }}
                     render={({ field }) => (
                       <Select
                         {...field}
                         isMulti
-                        options={allFeaturedCategories.map((cat) => ({
-                          value: cat.name,
-                          label: cat.name,
+                        options={allFeaturedCategories.map((c) => ({
+                          value: c.name,
+                          label: c.name,
                         }))}
-                        value={
-                          field.value?.map((name) => ({
-                            value: name,
-                            label: name,
-                          })) || []
+                        value={field.value.map((v) => ({ value: v, label: v }))}
+                        onChange={(selected) =>
+                          field.onChange(selected.map((s) => s.value))
                         }
-                        onChange={(selectedOptions) => {
-                          field.onChange(
-                            selectedOptions.map((opt) => opt.value)
-                          );
-                        }}
-                        className={`react-select-container ${
-                          errors.featuredCategoryNames
-                            ? "react-select--error"
-                            : ""
-                        }`}
                         classNamePrefix="react-select"
                       />
                     )}
                   />
                   {errors.featuredCategoryNames && (
-                    <p className="mt-1 text-sm text-error">
+                    <p className="form-error">
                       {errors.featuredCategoryNames.message}
                     </p>
                   )}
                 </div>
-
-                {/* Language (moved to column 3) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Language
                   </label>
                   <select
                     {...register("language")}
-                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                    className="w-full form-input"
                   >
-                    {languages.map((lang) => (
-                      <option key={lang} value={lang}>
-                        {lang}
-                      </option>
-                    ))}
+                    <option>English</option>
+                    <option>Urdu</option>
                   </select>
                 </div>
               </div>
 
-              {/* Third Row - Release Date, Pricing */}
+              {/* --- Row 3: Date & Pricing --- */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Release Date (moved from column 3 of previous row) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Release Date*
                   </label>
                   <input
                     type="date"
-                    {...register("releaseDate", { required: "Required" })}
-                    className={`w-full rounded-md border ${
-                      errors.releaseDate ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                    {...register("releaseDate", {
+                      required: "Release date is required.",
+                    })}
+                    className="w-full form-input"
                   />
                   {errors.releaseDate && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.releaseDate.message}
-                    </p>
+                    <p className="form-error">{errors.releaseDate.message}</p>
                   )}
                 </div>
-                {/* Price PKR */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Price (PKR)*
                   </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      ₨
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      {...register("pricePkr", {
-                        required: "Required",
-                        min: { value: 0, message: "Must be ≥ 0" },
-                      })}
-                      className={`w-full pl-8 rounded-md border ${
-                        errors.pricePkr ? "border-red-500" : "border-gray-300"
-                      } p-2 focus:ring-primary focus:border-primary`}
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...register("pricePkr", {
+                      required: "PKR price is required.",
+                      valueAsNumber: true,
+                      min: { value: 0, message: "Must be ≥ 0" },
+                    })}
+                    className="w-full form-input"
+                  />
                   {errors.pricePkr && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.pricePkr.message}
-                    </p>
+                    <p className="form-error">{errors.pricePkr.message}</p>
                   )}
                 </div>
-
-                {/* Price USD */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Price (USD)*
                   </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
-                      $
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      {...register("priceUsd", {
-                        required: "Required",
-                        min: { value: 0, message: "Must be ≥ 0" },
-                      })}
-                      className={`w-full pl-8 rounded-md border ${
-                        errors.priceUsd ? "border-red-500" : "border-gray-300"
-                      } p-2 focus:ring-primary focus:border-primary`}
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...register("priceUsd", {
+                      required: "USD price is required.",
+                      valueAsNumber: true,
+                      min: { value: 0, message: "Must be ≥ 0" },
+                    })}
+                    className="w-full form-input"
+                  />
                   {errors.priceUsd && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.priceUsd.message}
-                    </p>
+                    <p className="form-error">{errors.priceUsd.message}</p>
                   )}
                 </div>
               </div>
 
-              {/* Fourth Row - Discount, Content Restriction & Tags */}
+              {/* --- Row 4: Discount & Coupon --- */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Discount */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Discount
@@ -683,7 +484,7 @@ export const BookFormModal = ({
                   <div className="flex gap-2">
                     <select
                       {...register("discountType")}
-                      className="w-1/3 rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                      className="w-1/3 form-input"
                     >
                       <option value="percentage">%</option>
                       <option value="fixed">PKR</option>
@@ -694,38 +495,24 @@ export const BookFormModal = ({
                       {...register("discountValue", {
                         min: { value: 0, message: "Must be ≥ 0" },
                       })}
-                      className={`w-2/3 rounded-md border ${
-                        errors.discountValue
-                          ? "border-red-500"
-                          : "border-gray-300"
-                      } p-2 focus:ring-primary focus:border-primary`}
+                      className="w-2/3 form-input"
                     />
                   </div>
-                  {errors.discountValue && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.discountValue.message}
-                    </p>
-                  )}
                   <p className="mt-1 text-sm text-gray-600">
                     Discounted Price: ₨
                     {watch("discountedPricePkr")?.toFixed(2) || "0.00"}
                   </p>
                 </div>
-
-                {/* New Coupon Code Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Coupon Code (Optional)
+                    Coupon Code
                   </label>
                   <input
-                    type="text"
-                    {...register("couponCode")} // Register the new field
-                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                    {...register("couponCode")}
+                    className="w-full form-input"
                     placeholder="e.g., SAVE10"
                   />
                 </div>
-
-                {/* New Coupon Discount Percentage Section */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Coupon Discount (%)
@@ -736,15 +523,18 @@ export const BookFormModal = ({
                     max="100"
                     step="1"
                     {...register("couponDiscountPercentage", {
+                      valueAsNumber: true,
                       min: { value: 0, message: "Must be ≥ 0" },
                       max: { value: 100, message: "Must be ≤ 100" },
                     })}
-                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
+                    className="w-full form-input"
                     placeholder="e.g., 10"
                   />
                 </div>
+              </div>
 
-                {/* Preview Pages */}
+              {/* --- Row 5: Restriction & Tags --- */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Preview Pages Limit*
@@ -753,149 +543,98 @@ export const BookFormModal = ({
                     type="number"
                     min="0"
                     {...register("contentRestriction", {
-                      required: "Required",
+                      required: "Limit is required.",
+                      valueAsNumber: true,
                       min: { value: 0, message: "Must be ≥ 0" },
                     })}
-                    className={`w-full rounded-md border ${
-                      errors.contentRestriction
-                        ? "border-red-500"
-                        : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
+                    className="w-full form-input"
                   />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Pages visible to unauthorized users
-                  </p>
                   {errors.contentRestriction && (
-                    <p className="mt-1 text-sm text-error">
+                    <p className="form-error">
                       {errors.contentRestriction.message}
                     </p>
                   )}
                 </div>
-
-                {/* Tags */}
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tags
+                    Tag
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2">
                     <select
-                      className="w-full h-10 p-2 shadow-sm bg-secondary-light border border-gray-300 rounded-lg focus:border-primary text-black placeholder:italic"
                       value={selectedTagOption}
                       onChange={(e) => {
                         const value = e.target.value;
-                        setSelectedTagOption(e.target.value);
-                        setValue("tag", value === "custom" ? "" : value); // Ensure 'tag' field is updated
+                        setSelectedTagOption(value);
+                        if (value !== "custom") setValue("tag", value);
+                        else setValue("tag", "");
                       }}
+                      className="form-input"
                     >
-                      {availableTags.map((tag) => (
-                        <option key={tag} value={tag}>
-                          {tag}
+                      {availableTags.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
                         </option>
                       ))}
-                      <option key="custom" value="custom">
-                        Custom
-                      </option>
+                      <option value="custom">Custom</option>
                     </select>
                     {selectedTagOption === "custom" && (
                       <input
-                        type="text"
-                        {...register("tag")} // Register 'tag' here
-                        className={`w-full rounded-md border ${
-                          errors.tag ? "border-red-500" : "border-gray-300"
-                        } p-2 focus:ring-primary focus:border-primary`}
-                        placeholder="Write any custom tag"
+                        {...register("tag")}
+                        className="w-full form-input"
+                        placeholder="Custom tag"
                       />
                     )}
                   </div>
-                  {errors.tag && (
-                    <p className="mt-1 text-sm text-error">
-                      {errors.tag.message}
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {/* Fifth Row - Keywords */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Keywords */}
-                <div className="md:col-span-3">
-                  {" "}
-                  {/* Span all columns */}
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Keywords
-                    <span className="ml-2 text-gray-500 font-normal">
-                      (Press enter or comma to add)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    onKeyDown={handleKeyDown}
-                    onBlur={handleBlur}
-                    className={`w-full rounded-md border ${
-                      errors.keywords ? "border-red-500" : "border-gray-300"
-                    } p-2 focus:ring-primary focus:border-primary`}
-                    placeholder="e.g. science, fiction, AI"
-                  />
-                  {/* Keywords badges */}
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {keywords.map((keyword, index) => (
-                      <div
-                        key={index}
-                        className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-primary text-sm"
-                      >
-                        {keyword}
-                        <button
-                          type="button"
-                          onClick={() => removeKeyword(index)}
-                          className="ml-1 text-primary hover:text-primary-dark"
-                        >
-                          <XMarkIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
+              {/* --- Description --- */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description*
                 </label>
                 <textarea
-                  rows={5}
-                  {...register("description", { required: "Required" })}
-                  className={`w-full rounded-md border ${
-                    errors.description ? "border-red-500" : "border-gray-300"
-                  } p-2 focus:ring-primary focus:border-primary`}
+                  rows={4}
+                  {...register("description", {
+                    required: "Description is required.",
+                  })}
+                  className="w-full form-input"
                 />
                 {errors.description && (
-                  <p className="mt-1 text-sm text-error">
-                    {errors.description.message}
-                  </p>
+                  <p className="form-error">{errors.description.message}</p>
                 )}
               </div>
 
-              {/* Seventh Row - Cover Image */}
-              <ImageUploader
-                label="Book Cover*"
-                previewUrl={previews.cover}
-                onFileChange={(file) => handleImageUpload(file, "coverImage")}
-                error={fileUploadErrors.coverImage}
-              />
+              {/* --- Book Content Section --- */}
+              <div>
+                <h4 className="text-md font-semibold text-gray-800 border-b pb-2 mb-4">
+                  Book Content
+                </h4>
+                <AddBookContent
+                  content={watch("content")}
+                  setContent={(newContent) =>
+                    setValue(
+                      "content",
+                      typeof newContent === "function"
+                        ? newContent(watch("content"))
+                        : newContent,
+                      { shouldValidate: true }
+                    )
+                  }
+                />
+                {errors.content && (
+                  <p className="form-error">{errors.content.message}</p>
+                )}
+              </div>
 
-              {/* Eighth Row - Book Content (Text) */}
-              {errors.content && (
-                <p className="mt-3 text-md text-end text-error">
-                  {errors.content.message}
-                </p>
-              )}
-              <AddBookContent
-                content={watch("content")}
-                setContent={(cb) => setValue("content", cb(watch("content")))}
-              />
-
-              {/* Front Page and Back Page --- */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* --- Image Uploaders --- */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <ImageUploader
+                  label="Book Cover*"
+                  previewUrl={previews.cover}
+                  onFileChange={(file) => handleImageUpload(file, "coverImage")}
+                  error={fileUploadErrors.coverImage}
+                />
                 <ImageUploader
                   label="Front Page"
                   previewUrl={previews.frontPage}
@@ -914,37 +653,60 @@ export const BookFormModal = ({
                 />
               </div>
 
-              {/* Status and Featured toggle */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Book Status
-                  </label>
-                  <select
-                    {...register("status")}
-                    className="w-full rounded-md border border-gray-300 p-2 focus:ring-primary focus:border-primary"
-                  >
-                    <option value="published">Published</option>
-                    <option value="draft">Draft</option>
-                    <option value="archived">Archived</option>
-                  </select>
+              {/* --- Keywords --- */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Keywords
+                </label>
+                <input
+                  type="text"
+                  onKeyDown={handleKeywordsKeyDown}
+                  className="w-full form-input"
+                  placeholder="Type a keyword and press Enter"
+                />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {keywords.map((keyword, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center bg-indigo-100 text-indigo-800 text-sm font-medium px-2.5 py-0.5 rounded-full"
+                    >
+                      {keyword}
+                      <button
+                        type="button"
+                        onClick={() => removeKeyword(index)}
+                        className="ml-1.5 text-indigo-500 hover:text-indigo-700"
+                      >
+                        <XMarkIcon className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Footer with Action Buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t pb-5">
+              {/* --- Status --- */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select {...register("status")} className="w-full form-input">
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+
+              {/* --- Footer & Submit --- */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 border border-grey-500 rounded-md shadow-sm text-sm font-medium text-primary hover:bg-grey-50"
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary disabled:bg-grey-600 disabled:cursor-not-allowed hover:bg-warning"
+                  className="btn-primary"
                 >
                   {submitState}
                 </button>

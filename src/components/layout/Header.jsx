@@ -1,24 +1,25 @@
-import { useState } from 'react';
-import { 
-  Button, 
-  Dropdown, 
-  Menu, 
-  Avatar, 
-  Badge, 
+import { useState } from "react";
+import {
+  Button,
+  Dropdown,
+  Menu,
+  Avatar,
+  Badge,
   Popconfirm,
   message,
   Layout,
   Space,
-  Grid
-} from 'antd';
-import { 
-  MenuFoldOutlined, 
-  MenuUnfoldOutlined, 
-  BellOutlined, 
+  Grid,
+  Image,
+} from "antd";
+import {
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  BellOutlined,
   UserOutlined,
-  LogoutOutlined
-} from '@ant-design/icons';
-import { adminLogout } from '../../utils/firebase';
+  LogoutOutlined,
+} from "@ant-design/icons";
+import { adminLogout } from "../../utils/firebase";
 
 const { Header } = Layout;
 const { useBreakpoint } = Grid;
@@ -30,16 +31,16 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
   const handleLogout = async () => {
     try {
       await adminLogout();
-      message.success('Logged out successfully');
+      message.success("Logged out successfully");
     } catch (error) {
-      message.error('Error logging out');
-      console.error('Logout error:', error);
+      message.error("Error logging out");
+      console.error("Logout error:", error);
     }
   };
 
   const menu = (
     <Menu>
-      <Menu.Item key="logout" className='!bg-error !text-white'>
+      <Menu.Item key="logout" className="!bg-error !text-white">
         <Popconfirm
           title="Are you sure you want to logout?"
           onConfirm={handleLogout}
@@ -56,15 +57,17 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
   );
 
   return (
-    <Header style={{ 
-      background: '#fff',
-      padding: '10px 24px',
-      boxShadow: '0 1px 4px rgba(0,21,41,0.08)',
-      display: 'flex',
-      justifyContent: !isLargeScreen ? 'space-between' : "end",
-      alignItems: 'center',
-      zIndex: 99,
-    }}>
+    <Header
+      style={{
+        background: "#fff",
+        padding: "10px 24px",
+        boxShadow: "0 1px 4px rgba(0,21,41,0.08)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        zIndex: 99,
+      }}
+    >
       {/* Sidebar toggle button - hidden on lg screens and larger */}
       {!isLargeScreen && (
         <Button
@@ -75,18 +78,22 @@ const AppHeader = ({ sidebarOpen, setSidebarOpen }) => {
           style={{ marginLeft: -16 }}
         />
       )}
-      
+
+      <div className="w-24 aspect-square flex justify-center items-center">
+        <img src="/brand-logo.svg" className="h-full w-full" />
+      </div>
+
       {/* Right side icons */}
       <Space size="middle">
-        <Badge count={5}>
+        {/* <Badge count={5}>
           <Button 
             type="text" 
             icon={<BellOutlined />}
           />
-        </Badge>
-        
-        <Dropdown overlay={menu} trigger={['click']}>
-          <Space style={{ cursor: 'pointer', padding: '4px 8px' }}>
+        </Badge> */}
+
+        <Dropdown overlay={menu} trigger={["click"]}>
+          <Space style={{ cursor: "pointer", padding: "4px 8px" }}>
             <Avatar icon={<UserOutlined />} />
             <span>Admin</span>
           </Space>

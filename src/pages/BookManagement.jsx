@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 import { BookFormModal } from "../components/books/BookFormModal";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import BookTable from "../components/books/BookTable";
-import { db, seedOrders, seedUsers } from "../utils/firebase";
-import { toast } from "react-toastify"; // Import toast
+import { db } from "../utils/firebase";
+import { toast } from "react-toastify";
 
 import {
   addDoc,
@@ -15,12 +15,11 @@ import {
   arrayUnion,
   arrayRemove,
   serverTimestamp,
-  onSnapshot,
   getDocs,
   writeBatch,
   Timestamp,
-  query, // Import query
-  where, // Import where
+  query,
+  where,
 } from "firebase/firestore";
 
 import { CategoryModal } from "../components/books/CategoryModal";
@@ -30,8 +29,6 @@ import { Loader } from "../components/Loader";
 import { CouponManagementModal } from "../components/books/CouponManagementModal";
 
 export const BookManagement = () => {
-  // const [books, setBooks] = useState([]);
-  // const [categories, setCategories] = useState([]);
   const [editingBookId, setEditingBookId] = useState(null);
   const [isModalOpened, setIsModalOpened] = useState(false);
   const [isCategoryModalOpened, setIsCategoryModalOpened] = useState(false);
@@ -55,57 +52,41 @@ export const BookManagement = () => {
     refetchOnWindowFocus: false,
   });
 
-  // console.log("books", books);
-
   if (booksLoading) {
     return <Loader />;
   }
 
   const upsertBookToFirestore = async (formData) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       let coverUrl = formData.coverUrl;
       let bookId = formData.id ?? null;
       let frontPageUrl = formData.frontPageUrl;
       let backPageUrl = formData.backPageUrl;
       let oldCategories = [];
 
-      // --- MODIFICATION: Handle all image uploads efficiently in parallel ---
+      // --- Handle image uploads in parallel ---
       const uploadPromises = [];
       const imageFields = ["coverImage", "frontPageImage", "backPageImage"];
-
       imageFields.forEach((fieldName) => {
-        // Check if the field contains a new file object to upload
         if (formData[fieldName] && typeof formData[fieldName] !== "string") {
           uploadPromises.push(
-            uploadFileToFirebase(
-              formData[fieldName],
-              `book-assets/${Date.now()}_${formData[fieldName].name}`
-            ).then((result) => ({ fieldName, url: result.url })) // Return the field name with the URL
+            uploadFileToFirebase(formData[fieldName], `book-assets/${Date.now()}_${formData[fieldName].name}`)
+              .then(result => ({ fieldName, url: result.url }))
           );
         }
       });
 
-      // If there are new images to upload, wait for all of them to finish
       if (uploadPromises.length > 0) {
-        try {
-          const uploadResults = await Promise.all(uploadPromises);
-          // Assign the new URLs based on the results
-          uploadResults.forEach(({ fieldName, url }) => {
-            if (fieldName === "coverImage") coverUrl = url;
-            if (fieldName === "frontPageImage") frontPageUrl = url;
-            if (fieldName === "backPageImage") backPageUrl = url;
-          });
-        } catch (error) {
-          console.error("An image upload failed:", error);
-          toast.error("Failed to upload one or more images.", {
-            style: { backgroundColor: "var(--color-error)", color: "white" },
-          });
-          throw new Error("Image upload failed");
-        }
+        const uploadResults = await Promise.all(uploadPromises);
+        uploadResults.forEach(({ fieldName, url }) => {
+          if (fieldName === "coverImage") coverUrl = url;
+          if (fieldName === "frontPageImage") frontPageUrl = url;
+          if (fieldName === "backPageImage") backPageUrl = url;
+        });
       }
 
-      // 2. Get Old Categories if Updating
+      // --- Get Old Categories if Updating ---
       if (bookId) {
         const bookDoc = await getDoc(doc(db, "books", bookId));
         if (bookDoc.exists()) {
@@ -113,50 +94,37 @@ export const BookManagement = () => {
         }
       }
 
-      // 3. Prepare Book Data
+      // --- Prepare Book Metadata (without content) ---
       const bookData = {
         name: formData.name,
         writer: formData.writer,
         description: formData.description,
         categories: formData.categories || [],
         language: formData.language,
-        releaseDate: Timestamp.fromDate(new Date(formData.releaseDate)),
+        // *** FIX: Only add releaseDate if it's a valid date ***
+        ...(formData.releaseDate && { releaseDate: Timestamp.fromDate(new Date(formData.releaseDate)) }),
         prices: {
           pkr: formData.pricePkr,
           usd: formData.priceUsd,
           discountedPkr: formData.discountedPricePkr || formData.pricePkr,
         },
-        discount: {
-          type: formData.discountType,
-          value: formData.discountValue,
-        },
+        discount: { type: formData.discountType, value: formData.discountValue },
         contentRestriction: formData.contentRestriction,
         tag: formData.tag,
         keywords: formData.keywords,
         coverUrl,
         frontPageUrl: frontPageUrl || null,
         backPageUrl: backPageUrl || null,
-        content: formData.content,
-        // tableOfContents: formData.tableOfContents,
         status: formData.status || "published",
-        featured: formData.featuredCategoryNames?.length > 0 ? true : false,
+        featured: formData.featuredCategoryNames?.length > 0,
         standardCategoryNames: formData.standardCategoryNames,
         featuredCategoryNames: formData.featuredCategoryNames,
         coupon: formData.coupon || { code: null, discountPercentage: 0 },
         updatedAt: serverTimestamp(),
         ...(!bookId && { createdAt: serverTimestamp() }),
-        // ...(!bookId && {
-        //   stats: {
-        //     views: 0,
-        //     purchases: 0,
-        //     ratingsCount: 0,
-        //     averageRating: 0,
-        //   },
-        // }
-        // ),
       };
 
-      // 4. Create/Update Book Document
+      // --- Create/Update Book Document ---
       let newBookId;
       if (bookId) {
         await setDoc(doc(db, "books", bookId), bookData, { merge: true });
@@ -166,202 +134,109 @@ export const BookManagement = () => {
         newBookId = newBookRef.id;
       }
 
-      // 5. Sync Categories
-      // 5. SYNC CATEGORIES BY NAME (NEW IMPLEMENTATION)
-      const newCategories = formData.categories || [];
-
-      // Convert names to lowercase for case-insensitive comparison
-      const normalize = (name) => name.toLowerCase().trim();
-
-      const addedCategories = bookId
-        ? newCategories.filter(
-            (newCat) =>
-              !oldCategories.some(
-                (oldCat) => normalize(oldCat) === normalize(newCat)
-              )
-          )
-        : newCategories;
-
-      const removedCategories = bookId
-        ? oldCategories.filter(
-            (oldCat) =>
-              !newCategories.some(
-                (newCat) => normalize(newCat) === normalize(oldCat)
-              )
-          )
-        : [];
-
-      // Get all existing categories first
-      const categoriesSnapshot = await getDocs(collection(db, "categories"));
-      const existingCategories = new Set(
-        categoriesSnapshot.docs.map((doc) => normalize(doc.data().name))
-      );
-
-      // Process updates
+      // --- NEW: Handle Book Content in 'book_contents' collection ---
       const batch = writeBatch(db);
 
-      // ADD to new categories
+      // 1. Delete old content if it's an update
+      if (bookId) {
+        const oldContentQuery = query(collection(db, "book_contents"), where("bookId", "==", bookId));
+        const oldContentSnapshot = await getDocs(oldContentQuery);
+        oldContentSnapshot.forEach(doc => batch.delete(doc.ref));
+      }
+
+      // 2. Add new content
+      formData.content.forEach((chapter, index) => {
+        const chapterRef = doc(collection(db, "book_contents"));
+        const chapterData = {
+          bookId: newBookId,
+          heading: chapter.heading,
+          body: chapter.body,
+          alignment: chapter.alignment || 'left',
+          order: chapter.order || index,
+        };
+        batch.set(chapterRef, chapterData);
+      });
+
+      // --- Sync Categories ---
+      const newCategories = formData.categories || [];
+      const normalize = (name) => name.toLowerCase().trim();
+      const addedCategories = bookId ? newCategories.filter(newCat => !oldCategories.some(oldCat => normalize(oldCat) === normalize(newCat))) : newCategories;
+      const removedCategories = bookId ? oldCategories.filter(oldCat => !newCategories.some(newCat => normalize(newCat) === normalize(oldCat))) : [];
+      
+      const categoriesSnapshot = await getDocs(collection(db, "categories"));
+      
       for (const categoryName of addedCategories) {
-        // Find the category doc with matching name
-        const categoryDoc = categoriesSnapshot.docs.find(
-          (doc) => normalize(doc.data().name) === normalize(categoryName)
-        );
-
+        const categoryDoc = categoriesSnapshot.docs.find(doc => normalize(doc.data().name) === normalize(categoryName));
         if (categoryDoc) {
-          batch.update(categoryDoc.ref, {
-            books: arrayUnion(newBookId),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          console.warn(
-            `Category "${categoryName}" doesn't exist in categories collection`
-          );
-          toast.warn(`Category "${categoryName}" does not exist.`, {
-            style: {
-              backgroundColor: "var(--color-warning)",
-              color: "white",
-            },
-          });
-          // Option 1: Skip (current behavior)
-          // Option 2: Create new category automatically:
-          // const newCatRef = doc(collection(db, "categories"));
-          // batch.set(newCatRef, {
-          //   name: categoryName,
-          //   books: [newBookId],
-          //   createdAt: serverTimestamp(),
-          //   updatedAt: serverTimestamp()
-          // });
+          batch.update(categoryDoc.ref, { books: arrayUnion(newBookId), updatedAt: serverTimestamp() });
         }
       }
-
-      // REMOVE from old categories
+      
       for (const categoryName of removedCategories) {
-        const categoryDoc = categoriesSnapshot.docs.find(
-          (doc) => normalize(doc.data().name) === normalize(categoryName)
-        );
-
+        const categoryDoc = categoriesSnapshot.docs.find(doc => normalize(doc.data().name) === normalize(categoryName));
         if (categoryDoc) {
-          batch.update(categoryDoc.ref, {
-            books: arrayRemove(newBookId),
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          console.warn(`Category "${categoryName}" not found during removal`);
-          toast.warn(`Category "${categoryName}" not found during removal.`, {
-            style: {
-              backgroundColor: "var(--color-warning)",
-              color: "white",
-            },
-          });
+          batch.update(categoryDoc.ref, { books: arrayRemove(newBookId), updatedAt: serverTimestamp() });
         }
       }
 
+      // --- Commit all batched writes at once ---
       await batch.commit();
 
-      // fetchBooks();
-      queryClient.invalidateQueries(["books"]);
-      queryClient.invalidateQueries(["book", bookId]);
-      toast.success(`Book ${bookId ? "updated" : "added"} successfully!`, {
-        style: {
-          backgroundColor: "var(--color-success)",
-          color: "white",
-        },
-      });
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+      queryClient.invalidateQueries({ queryKey: ['book', newBookId] });
+      toast.success(`Book ${bookId ? "updated" : "added"} successfully!`);
       return { success: true, bookId: newBookId };
+
     } catch (error) {
       console.error("Error in upsertBookToFirestore:", error);
-      toast.error(
-        `Failed to ${formData.id ? "update" : "add"} book: ${error.message}`,
-        {
-          style: { backgroundColor: "var(--color-error)", color: "white" },
-        }
-      );
+      toast.error(`Failed to ${formData.id ? "update" : "add"} book: ${error.message}`);
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleSubmit = async (data) => {
-    try {
-      if (editingBookId) {
-        await upsertBookToFirestore(data);
-      } else {
-        await upsertBookToFirestore(data);
-      }
-    } catch (error) {
-      // Error handling is already done in upsertBookToFirestore
-      setIsLoading(false);
-      console.error("Error submitting form: ", error);
-    }
+    await upsertBookToFirestore(data);
     setEditingBookId(null);
     setIsModalOpened(false);
   };
+  
   const handleEdit = (book) => {
     setEditingBookId(book.id);
     setIsModalOpened(true);
   };
 
   const handleDelete = async (id) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
+        const batch = writeBatch(db);
 
-      // 1. First get the book document to find its categories
-      const bookRef = doc(db, "books", id);
-      const bookSnap = await getDoc(bookRef);
+        const bookRef = doc(db, "books", id);
+        batch.delete(bookRef);
 
-      if (!bookSnap.exists()) {
-        toast.error("Book not found.", {
-          style: { backgroundColor: "var(--color-error)", color: "white" },
+        const contentQuery = query(collection(db, "book_contents"), where("bookId", "==", id));
+        const contentSnapshot = await getDocs(contentQuery);
+        contentSnapshot.forEach(doc => batch.delete(doc.ref));
+
+        const categoriesQueryRef = query(collection(db, "categories"), where("books", "array-contains", id));
+        const categoriesSnapshot = await getDocs(categoriesQueryRef);
+        categoriesSnapshot.forEach(doc => {
+            batch.update(doc.ref, {
+                books: arrayRemove(id),
+                updatedAt: serverTimestamp(),
+            });
         });
-        throw new Error("Book not found");
-      }
 
-      const bookCategories = bookSnap.data().categories || [];
+        await batch.commit();
 
-      // 2. Prepare batch operation
-      const batch = writeBatch(db);
-
-      // 3. Add book deletion to batch
-      batch.delete(bookRef);
-
-      // 4. Remove book reference from all its categories
-      if (bookCategories.length > 0) {
-        // Get all categories that might contain this book
-        const categoriesQueryRef = query(
-          // Renamed to avoid conflict
-          collection(db, "categories"),
-          where("books", "array-contains", id)
-        );
-        const categoriesSnapshot = await getDocs(categoriesQueryRef); // Used renamed query
-
-        categoriesSnapshot.forEach((doc) => {
-          batch.update(doc.ref, {
-            books: arrayRemove(id),
-            updatedAt: serverTimestamp(),
-          });
-        });
-      }
-
-      // 5. Execute batch
-      await batch.commit();
-
-      // 6. Refresh data
-      // fetchBooks();
-      queryClient.invalidateQueries(["books"]); // Invalidate books query
-      queryClient.invalidateQueries(["categories"]); // Invalidate categories query as well
-
-      // Optional: Show success message
-      toast.success("Book deleted successfully!", {
-        style: { backgroundColor: "var(--color-success)", color: "white" },
-      });
+        queryClient.invalidateQueries({ queryKey: ['books'] });
+        toast.success("Book deleted successfully!");
     } catch (error) {
-      console.error("Error deleting book:", error);
-      toast.error(`Failed to delete book: ${error.message}`, {
-        style: { backgroundColor: "var(--color-error)", color: "white" },
-      });
-      throw error;
+        console.error("Error deleting book:", error);
+        toast.error(`Failed to delete book: ${error.message}`);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
 
@@ -372,12 +247,6 @@ export const BookManagement = () => {
         <h1 className="text-2xl font-bold text-primary">Book Management</h1>
 
         <div className="flex gap-3 w-full sm:w-auto">
-          {/* <button
-            onClick={seedOrders}
-            className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
-          >
-            Seed Orders
-          </button> */}
           <button
             onClick={() => setIsCategoryModalOpened(true)}
             className="inline-flex items-center justify-center px-4 py-2 cursor-pointer rounded-md shadow-sm text-sm font-medium text-primary bg-secondary hover:bg-secondary-light focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2 transition-colors"
@@ -413,7 +282,10 @@ export const BookManagement = () => {
             Get started by adding your first book
           </p>
           <button
-            onClick={() => setIsModalOpened(true)}
+            onClick={() => {
+              setEditingBookId(null);
+              setIsModalOpened(true);
+            }}
             className="inline-flex items-center cursor-pointer justify-center px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary-light focus:ring-offset-2 transition-colors"
           >
             <PlusIcon className="-ml-1 mr-2 h-5 w-5" />

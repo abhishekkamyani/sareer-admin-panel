@@ -64,3 +64,36 @@
 .ant-picker-dropdown {
   @apply !shadow-lg;
 }
+
+.form-input {
+    @apply w-full rounded-md border border-grey-300 p-2 shadow-sm focus:ring-[var(--color-primary)] focus:border-[var(--color-primary)];
+  }
+
+  /* Style for displaying validation errors */
+  .form-error {
+    @apply mt-1 text-sm text-[var(--color-error)];
+  }
+
+  /* Primary button style */
+  .btn-primary {
+    @apply px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)] disabled:bg-[var(--color-disabled-button)] disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-primary)];
+  }
+
+  /* Secondary button style */
+  .btn-secondary {
+    @apply px-4 py-2 border border-grey-300 rounded-md shadow-sm text-sm font-medium text-grey-700 bg-white hover:bg-grey-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-primary)];
+  }
+
+  /* Custom styles for the React-Select component */
+  .react-select-container .react-select__control {
+    @apply rounded-md border-grey-300 shadow-sm;
+  }
+
+  .react-select-container .react-select__control--is-focused {
+    @apply border-[var(--color-primary)] ring-1 ring-[var(--color-primary)];
+  }
+
+  /* Error state for React-Select */
+  .react-select--error .react-select__control {
+    @apply border-[var(--color-error)];
+  }

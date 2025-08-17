@@ -19,11 +19,17 @@ export const AddBookContent = ({ content, setContent }) => {
   // Add new chapter
   const addChapter = () => {
     const newChapter = {
-      id: Date.now(),
+      // Use a temporary ID for client-side keying. Firestore will generate the permanent one.
+      id: `temp_${Date.now()}`,
       heading: "",
       body: "",
+      alignment: "left",
+      // Set the order based on the current number of chapters
+      order: content.length,
     };
     setContent((prev) => [...prev, newChapter]);
+    // Automatically select the new chapter for editing
+    setSelectedChapter(newChapter.id);
   };
 
   // Update chapter fields
@@ -35,7 +41,15 @@ export const AddBookContent = ({ content, setContent }) => {
 
   // Delete chapter
   const deleteChapter = (id) => {
-    setContent((prev) => prev.filter((item) => item.id !== id));
+    // Filter out the chapter and then re-order the remaining ones
+    setContent((prev) =>
+      prev
+        .filter((item) => item.id !== id)
+        .map((item, index) => ({
+          ...item,
+          order: index,
+        }))
+    );
     if (selectedChapter === id) setSelectedChapter(null);
   };
 
@@ -56,33 +70,36 @@ export const AddBookContent = ({ content, setContent }) => {
           </button>
         </div>
         <div className="space-y-2">
-          {content.map((item) => (
-            <div
-              key={item.id}
-              className={`p-2 rounded cursor-pointer ${
-                selectedChapter === item.id
-                  ? "bg-grey-300"
-                  : "hover:bg-grey-200"
-              }`}
-              onClick={() => setSelectedChapter(item.id)}
-            >
-              <div className="flex justify-between items-center">
-                <span className="flex-1">
-                  {item.heading || "Untitled Chapter"}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteChapter(item.id);
-                  }}
-                  className="text-error hover:text-red-700"
-                  type="button"
-                >
-                  <XMarkIcon className="h-4 w-4" />
-                </button>
+          {/* Sort content by order for display */}
+          {content
+            .sort((a, b) => a.order - b.order)
+            .map((item) => (
+              <div
+                key={item.id}
+                className={`p-2 rounded cursor-pointer ${
+                  selectedChapter === item.id
+                    ? "bg-grey-300"
+                    : "hover:bg-grey-200"
+                }`}
+                onClick={() => setSelectedChapter(item.id)}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="flex-1 truncate">
+                    {`Ch ${item.order + 1}: ${item.heading || "Untitled"}`}
+                  </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChapter(item.id);
+                    }}
+                    className="text-error hover:text-red-700 ml-2"
+                    type="button"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
       </div>
 
@@ -90,54 +107,102 @@ export const AddBookContent = ({ content, setContent }) => {
       <div className="flex-1 p-4 flex flex-col">
         {current ? (
           <>
-            <div className=" ms-auto">
-              <label
-                htmlFor="alignment-select"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Text Alignment
-              </label>
-              <Select
-                id="alignment-select"
-                value={current?.alignment ?? "left"}
-                onChange={(value) =>
-                  updateChapter(current?.id, "alignment", value)
-                }
-                style={{ width: "100%" }}
-                aria-label="Text Alignment Selector"
-              >
-                {alignmentOptions.map((option) => (
-                  <Select.Option key={option.value} value={option.value}>
-                    <div className="flex items-center">
-                      <span className="mr-2">{option.icon}</span>
-                      {option.label}
-                    </div>
-                  </Select.Option>
-                ))}
-              </Select>
+            <div className="flex justify-between items-center mb-4">
+              {/* <div className="w-1/3">
+                    <label
+                        htmlFor="chapter-order"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                        Chapter Order
+                    </label>
+                    <input
+                        type="number"
+                        id="chapter-order"
+                        value={current.order}
+                        onChange={(e) =>
+                            updateChapter(current.id, "order", parseInt(e.target.value, 10))
+                        }
+                        className="w-full p-2 border rounded"
+                    />
+                </div> */}
+              {/* <div className="w-1/3">
+                    <label
+                        htmlFor="alignment-select"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                        Text Alignment
+                    </label>
+                    <Select
+                        id="alignment-select"
+                        value={current?.alignment ?? "left"}
+                        onChange={(value) =>
+                        updateChapter(current?.id, "alignment", value)
+                        }
+                        style={{ width: "100%" }}
+                        aria-label="Text Alignment Selector"
+                    >
+                        {alignmentOptions.map((option) => (
+                        <Select.Option key={option.value} value={option.value}>
+                            <div className="flex items-center">
+                            <span className="mr-2">{option.icon}</span>
+                            {option.label}
+                            </div>
+                        </Select.Option>
+                        ))}
+                    </Select>
+                </div> */}
             </div>
-            <div className="w-full">
-              <label
-                htmlFor="heading"
-                className="text-sm font-medium text-gray-700 mb-2"
-              >
-                Chapter Heading
-              </label>
-              <input
-                type="text"
-                id="heading"
-                value={current.heading}
-                onChange={(e) =>
-                  updateChapter(current.id, "heading", e.target.value)
-                }
-                style={{ textAlign: current?.alignment ?? "left" }}
-                placeholder="Chapter Heading"
-                className="mb-4 w-full p-2 border rounded"
-              />
+            <div className="w-full flex mb-4 items-center justify-between flex-row-reverse">
+              <div className="w-1/3">
+                <label
+                  htmlFor="alignment-select"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Text Alignment
+                </label>
+                <Select
+                  id="alignment-select"
+                  value={current?.alignment ?? "left"}
+                  onChange={(value) =>
+                    updateChapter(current?.id, "alignment", value)
+                  }
+                  style={{ width: "100%" }}
+                  aria-label="Text Alignment Selector"
+                >
+                  {alignmentOptions.map((option) => (
+                    <Select.Option key={option.value} value={option.value}>
+                      <div className="flex items-center">
+                        <span className="mr-2">{option.icon}</span>
+                        {option.label}
+                      </div>
+                    </Select.Option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label
+                  htmlFor="heading"
+                  className="text-sm font-medium text-gray-700 mb-1"
+                >
+                  Chapter Heading
+                </label>
+                <input
+                  type="text"
+                  id="heading"
+                  value={current.heading}
+                  onChange={(e) =>
+                    updateChapter(current.id, "heading", e.target.value)
+                  }
+                  style={{ textAlign: current?.alignment ?? "left" }}
+                  placeholder="Chapter Heading"
+                  className="w-full p-2 border rounded"
+                />
+              </div>
             </div>
+
             <label
               htmlFor="content"
-              className="text-sm font-medium text-gray-700 mb-2"
+              className="text-sm font-medium text-gray-700 mb-1"
             >
               Chapter Content
             </label>
@@ -151,19 +216,10 @@ export const AddBookContent = ({ content, setContent }) => {
               placeholder="Enter chapter content..."
               style={{ textAlign: current?.alignment ?? "left" }}
             />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setSelectedChapter(null)}
-                className="bg-gray-500 text-white px-4 py-2 rounded"
-                type="button"
-              >
-                Close
-              </button>
-            </div>
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            Select a chapter to edit
+            Select a chapter to edit or add a new one
           </div>
         )}
       </div>

@@ -18,69 +18,39 @@ import {
 } from "firebase/storage";
 import dayjs from "dayjs";
 
-export const uploadFileToFirebase = async (file, path = "book-covers/") => {
+export const uploadFileToFirebase = async (file, path = "book-assets/") => {
   try {
-    console.log("path", path);
-
-    // 1. Get storage reference
     const storage = getStorage();
     const fileName = `${Date.now()}-${file.name}`;
     const storageRef = ref(storage, `${path}${fileName}`);
+    const metadata = { contentType: file.type };
 
-    // 2. Set metadata (optional)
-    const metadata = {
-      contentType: file.type || "application/octet-stream",
-    };
+    const uploadTask = uploadBytesResumable(storageRef, file, metadata);
 
-    // 3. Create upload task with timeout handling
-    const uploadPromise = new Promise((resolve, reject) => {
-      const uploadTask = uploadBytesResumable(storageRef, file, metadata);
-      let timedOut = false;
-
-      // Set timeout (5 minutes)
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        uploadTask.cancel();
-        console.log("error", error);
-        reject(new Error("Upload timed out after 30 seconds"));
-      }, 60000);
-
+    return new Promise((resolve, reject) => {
       uploadTask.on(
         "state_changed",
         (snapshot) => {
-          // Progress tracking
           const progress =
             (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          console.log(`Upload progress: ${progress.toFixed(2)}%`);
+          console.log(`Upload is ${progress}% done`);
         },
         (error) => {
-          clearTimeout(timeout);
-          if (!timedOut) {
-            console.log("error", error);
-            reject(error);
-          }
+          console.error("Upload failed:", error);
+          reject(error);
         },
         async () => {
-          clearTimeout(timeout);
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve({
-              url: downloadURL,
-              path: `${path}${fileName}`,
-              fileName: fileName,
-            });
-          } catch (error) {
-            console.log("error", error);
-
-            reject(error);
-          }
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          resolve({
+            url: downloadURL,
+            path: `${path}${fileName}`,
+            fileName: fileName,
+          });
         }
       );
     });
-
-    return await uploadPromise;
   } catch (error) {
-    console.error("Upload failed:", error);
+    console.error("Error in uploadFileToFirebase:", error);
     throw error;
   }
 };
@@ -88,19 +58,17 @@ export const uploadFileToFirebase = async (file, path = "book-covers/") => {
 export const fetchBooks = async () => {
   const snapshot = await getDocs(collection(db, "books"));
   return snapshot.docs.map((doc) => {
-    const data = doc.data(); // Get the document data once
-
-    // Manually pick only the fields you need for the list view
+    const data = doc.data();
     return {
       id: doc.id,
-      coverUrl: data.coverUrl, // Or whatever the field name is
+      coverUrl: data.coverUrl,
       name: data.name,
       writer: data.writer,
       categories: data.categories,
       language: data.language,
       prices: data.prices,
       status: data.status,
-      releaseDate: data.releaseDate?.toDate(), // Keep your date conversion
+      releaseDate: data.releaseDate?.toDate(),
     };
   });
 };
@@ -118,24 +86,39 @@ export const fetchOrders = async () => {
 };
 
 export const fetchBook = async (bookId) => {
-  if (!bookId) {
-    // Don't run if there's no ID
+  if (!bookId) return null;
+
+  // 1. Fetch the main book document
+  const bookRef = doc(db, "books", bookId);
+  const bookSnap = await getDoc(bookRef);
+
+  if (!bookSnap.exists()) {
+    console.error("No such book found!");
     return null;
   }
-  const bookDocRef = doc(db, "books", bookId);
-  const docSnap = await getDoc(bookDocRef);
 
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      ...data,
-      releaseDate: data.releaseDate?.toDate(),
-    };
-  } else {
-    // Throw an error so react-query can catch it
-    throw new Error("Book not found!");
-  }
+  const bookData = { id: bookSnap.id, ...bookSnap.data() };
+
+  // 2. Fetch the book's content from the 'book_contents' collection
+  const contentQuery = query(
+    collection(db, "book_contents"),
+    where("bookId", "==", doc(db, "books", bookId).id),
+    // orderBy("order", "asc") // Order chapters by the 'order' field
+  );
+
+  console.log("contentQuery", contentQuery);
+
+  const contentSnapshot = await getDocs(contentQuery);
+  console.log("contentSnapshot", contentSnapshot);
+  const bookContent = contentSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  console.log("bookContent", bookContent);
+
+  // 3. Combine and return
+  return { ...bookData, content: bookContent };
 };
 
 export const fetchTotalBooks = async () => {
@@ -472,11 +455,10 @@ export const orders = [
 export const getCategories = async () => {
   try {
     const querySnapshot = await getDocs(collection(db, "categories"));
-    const categories = querySnapshot.docs.map((doc) => ({
+    return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
-    return categories;
   } catch (err) {
     console.error("Failed to fetch categories", err);
     throw err;
